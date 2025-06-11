@@ -198,32 +198,48 @@
     }
   </script>
 
-  <!-- STEP 2: GROUND ZONING -->
-  <div class="section" id="step2" style="display:none;">
-    <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
+<!-- STEP 2: GROUND ZONING -->
+<div class="section" id="step2" style="display:none;">
+  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
 
-    <div style="margin-bottom: 15px;">
-      <label for="siteWidth">Site Width (m):</label>
-      <input type="number" id="siteWidth" value="30" />
+  <div style="margin-bottom: 15px;">
+    <label for="preserveTrees">Select Trees to Preserve (by number)</label>
+    <input type="text" id="preserveTrees" placeholder="e.g., 1,3" />
 
-      <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
-      <input type="number" id="siteDepth" value="40" />
+    <label for="accessPref">Access Preference</label>
+    <select id="accessPref">
+      <option value="front">Front Road Access</option>
+      <option value="side">Side Road Access</option>
+      <option value="separate">Separate Pedestrian/Vehicular</option>
+    </select>
 
-      <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
-      <input type="number" id="setbackFront" value="3" />
+    <label for="entryStyle">Entry Style</label>
+    <select id="entryStyle">
+      <option value="grand">Grand</option>
+      <option value="imposing">Imposing</option>
+      <option value="subtle">Subtle</option>
+    </select>
 
-      <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
-      <input type="number" id="setbackRear" value="3" />
+    <label for="parkingPref">Parking Preference</label>
+    <select id="parkingPref">
+      <option value="open">Open</option>
+      <option value="stilt">Stilt</option>
+      <option value="built">Built</option>
+    </select>
 
-      <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
-      <input type="number" id="setbackSide" value="1.5" />
+    <label for="openSpaces">Desired Open Spaces</label>
+    <input type="text" id="openSpaces" placeholder="e.g., courtyards, gardens" />
 
-      <button onclick="generateZoning()">Generate Zoning</button>
-    </div>
+    <label for="privacyDirection">Design Direction (privacy/views/noise)</label>
+    <input type="text" id="privacyDirection" placeholder="e.g., prioritize views to east" />
 
-    <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
-    <button onclick="goToStep3()">Proceed to Step 3</button>
+    <button onclick="generateZoning()">Generate Zoning</button>
   </div>
+
+  <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
+  <button onclick="goToStep3()">Proceed to Step 3</button>
+</div>
+
 
     <!-- STEP 3: AREA STATEMENT -->
   <div class="section" id="step3" style="display:none;">
@@ -252,64 +268,75 @@
   </div>
 
   <script>
-    function generateZoning() {
-      const svg = document.getElementById("zoningDiagram");
-      svg.innerHTML = "";
 
-      const scale = 10;
-      const siteWidth = parseFloat(document.getElementById("siteWidth").value);
-      const siteDepth = parseFloat(document.getElementById("siteDepth").value);
-      const setbackFront = parseFloat(document.getElementById("setbackFront").value);
-      const setbackRear = parseFloat(document.getElementById("setbackRear").value);
-      const setbackSide = parseFloat(document.getElementById("setbackSide").value);
+let sitePolygonGlobal = [];
 
-      const margin = 50;
-      const totalWidth = siteWidth * scale + 2 * margin;
-      const totalHeight = siteDepth * scale + 2 * margin;
-      const siteX = margin;
-      const siteY = margin;
+function generateZoning() {
+  const svg = document.getElementById("zoningDiagram");
+  svg.innerHTML = "";
 
-      svg.setAttribute("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
-      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      svg.setAttribute("width", "100%");
-      svg.setAttribute("height", "auto");
+  const scale = 10;
+  const padding = 50;
 
-      // Site boundary
-      const siteRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      siteRect.setAttribute("x", siteX);
-      siteRect.setAttribute("y", siteY);
-      siteRect.setAttribute("width", siteWidth * scale);
-      siteRect.setAttribute("height", siteDepth * scale);
-      siteRect.setAttribute("fill", "#f0f0f0");
-      siteRect.setAttribute("stroke", "#000");
-      siteRect.setAttribute("stroke-width", "2");
-      svg.appendChild(siteRect);
+  // Use site coordinates from Step 1
+  const coordsRaw = document.getElementById("siteCoords").value.trim();
+  const sitePoints = coordsRaw.split(";").map(pt => {
+    const [x, y] = pt.replace(/[()]/g, "").split(",").map(Number);
+    return { x, y };
+  });
 
-      // Buildable area
-      const buildableX = siteX + setbackSide * scale;
-      const buildableY = siteY + setbackFront * scale;
-      const buildableWidth = (siteWidth - 2 * setbackSide) * scale;
-      const buildableHeight = (siteDepth - setbackFront - setbackRear) * scale;
+  if (sitePoints.length < 3) return;
 
-      const buildableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      buildableRect.setAttribute("x", buildableX);
-      buildableRect.setAttribute("y", buildableY);
-      buildableRect.setAttribute("width", buildableWidth);
-      buildableRect.setAttribute("height", buildableHeight);
-      buildableRect.setAttribute("fill", "#a3d3ff");
-      buildableRect.setAttribute("stroke", "#0077cc");
-      buildableRect.setAttribute("stroke-width", "2");
-      svg.appendChild(buildableRect);
+  const allX = sitePoints.map(p => p.x);
+  const allY = sitePoints.map(p => p.y);
+  const minX = Math.min(...allX);
+  const maxX = Math.max(...allX);
+  const minY = Math.min(...allY);
+  const maxY = Math.max(...allY);
 
-      // Label
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", siteX + 5);
-      text.setAttribute("y", siteY - 10);
-      text.textContent = "Site & Buildable Footprint";
-      text.setAttribute("font-size", "14px");
-      text.setAttribute("fill", "#333");
-      svg.appendChild(text);
-    }
+  const siteWidth = maxX - minX;
+  const siteDepth = maxY - minY;
+
+  const bboxWidth = siteWidth * scale + 2 * padding;
+  const bboxHeight = siteDepth * scale + 2 * padding;
+  const offsetX = padding - minX * scale;
+  const offsetY = padding + maxY * scale;
+
+  svg.setAttribute("viewBox", `0 0 ${bboxWidth} ${bboxHeight}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.setAttribute("width", "100%");
+  svg.setAttribute("height", "auto");
+
+  // Site boundary
+  const sitePoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  const polyStr = sitePoints.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" ");
+  sitePoly.setAttribute("points", polyStr);
+  sitePoly.setAttribute("fill", "transparent");
+  sitePoly.setAttribute("stroke", "black");
+  sitePoly.setAttribute("stroke-width", "2");
+  svg.appendChild(sitePoly);
+
+  // Placeholder: Zoning footprint (brown fill with 20% opacity)
+  // This should be calculated using logic you described, but here is a mock-up center rect
+  const buffer = 3 * scale;
+  const footprintX = minX * scale + offsetX + buffer;
+  const footprintY = offsetY - (maxY * scale) + buffer;
+  const footprintW = (siteWidth * scale) - 2 * buffer;
+  const footprintH = (siteDepth * scale) - 2 * buffer;
+
+  const footprint = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  footprint.setAttribute("x", footprintX);
+  footprint.setAttribute("y", footprintY);
+  footprint.setAttribute("width", footprintW);
+  footprint.setAttribute("height", footprintH);
+  footprint.setAttribute("fill", "brown");
+  footprint.setAttribute("fill-opacity", "0.2");
+  footprint.setAttribute("stroke", "brown");
+  footprint.setAttribute("stroke-width", "2");
+  svg.appendChild(footprint);
+
+  // TODO: Implement actual subtraction logic for trees and circulation
+}
 
     function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
