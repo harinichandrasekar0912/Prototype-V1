@@ -57,33 +57,6 @@
     <svg id="canvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc;"></svg>
   </div>
 
-  <!-- STEP 2: GROUND ZONING -->
-  <div class="section" id="step2" style="display:none;">
-    <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
-
-    <div style="margin-bottom: 15px;">
-      <label for="siteWidth">Site Width (m):</label>
-      <input type="number" id="siteWidth" value="30" />
-
-      <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
-      <input type="number" id="siteDepth" value="40" />
-
-      <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
-      <input type="number" id="setbackFront" value="3" />
-
-      <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
-      <input type="number" id="setbackRear" value="3" />
-
-      <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
-      <input type="number" id="setbackSide" value="1.5" />
-
-      <button onclick="generateZoning()">Generate Zoning</button>
-    </div>
-
-    <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
-    <button onclick="goToStep3()">Proceed to Step 3</button>
-  </div>
-
   <script>
     function parseCoords(str) {
       return str.split(";").map(s => s.replace(/[()]/g, "").split(",").map(Number));
@@ -113,38 +86,61 @@
       const bboxWidth = (maxX - minX) * scale + 2 * padding;
       const bboxHeight = (maxY - minY) * scale + 2 * padding;
       const offsetX = padding - minX * scale;
-      const offsetY = padding - minY * scale;
+      const offsetY = padding + maxY * scale; // invert Y
 
       svg.setAttribute("viewBox", `0 0 ${bboxWidth} ${bboxHeight}`);
       svg.setAttribute("width", "100%");
       svg.setAttribute("height", "auto");
       svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-      // Site polygon
+      // GRID BACKGROUND
+      const gridSpacing = scale;
+      for (let x = 0; x < bboxWidth; x += gridSpacing) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x);
+        line.setAttribute("y1", 0);
+        line.setAttribute("x2", x);
+        line.setAttribute("y2", bboxHeight);
+        line.setAttribute("stroke", "#eee");
+        line.setAttribute("stroke-width", 0.5);
+        svg.appendChild(line);
+      }
+      for (let y = 0; y < bboxHeight; y += gridSpacing) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", 0);
+        line.setAttribute("y1", y);
+        line.setAttribute("x2", bboxWidth);
+        line.setAttribute("y2", y);
+        line.setAttribute("stroke", "#eee");
+        line.setAttribute("stroke-width", 0.5);
+        svg.appendChild(line);
+      }
+
+      // SITE BOUNDARY (transparent fill, black stroke)
       const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
+      const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" ");
       polygon.setAttribute("points", pointStr);
-      polygon.setAttribute("fill", "#d0eaff");
-      polygon.setAttribute("stroke", "#0077cc");
+      polygon.setAttribute("fill", "transparent");
+      polygon.setAttribute("stroke", "black");
       polygon.setAttribute("stroke-width", 2);
       svg.appendChild(polygon);
 
-      // Trees
+      // TREES
       const trees = document.getElementById("treeData").value.trim();
       if (trees) {
         trees.split(";").forEach(t => {
           const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
           const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
           circle.setAttribute("cx", x * scale + offsetX);
-          circle.setAttribute("cy", y * scale + offsetY);
+          circle.setAttribute("cy", offsetY - y * scale);
           circle.setAttribute("r", r * scale);
           circle.setAttribute("fill", "green");
-          circle.setAttribute("opacity", 0.5);
+          circle.setAttribute("fill-opacity", "0.25");
           svg.appendChild(circle);
         });
       }
 
-      // Context buildings (polygon format)
+      // CONTEXT BUILDINGS (draw as rectangles)
       const buildingRaw = document.getElementById("contextData").value.trim();
       const buildings = buildingRaw.match(/\(\((.*?)\)\)/g);
       if (buildings) {
@@ -155,18 +151,27 @@
             return { x, y };
           });
 
-          const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-          const polyStr = vertices.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
-          polygon.setAttribute("points", polyStr);
-          polygon.setAttribute("fill", "#bbb");
-          polygon.setAttribute("stroke", "#333");
-          polygon.setAttribute("stroke-width", 1);
-          polygon.setAttribute("opacity", 0.6);
-          svg.appendChild(polygon);
+          if (vertices.length >= 2) {
+            const minX = Math.min(...vertices.map(v => v.x));
+            const minY = Math.min(...vertices.map(v => v.y));
+            const maxX = Math.max(...vertices.map(v => v.x));
+            const maxY = Math.max(...vertices.map(v => v.y));
+
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("x", minX * scale + offsetX);
+            rect.setAttribute("y", offsetY - maxY * scale);
+            rect.setAttribute("width", (maxX - minX) * scale);
+            rect.setAttribute("height", (maxY - minY) * scale);
+            rect.setAttribute("fill", "#bbb");
+            rect.setAttribute("stroke", "#333");
+            rect.setAttribute("stroke-width", 1);
+            rect.setAttribute("opacity", 0.6);
+            svg.appendChild(rect);
+          }
         });
       }
 
-      // Road edge
+      // ROAD LINE
       const roadEdge = document.getElementById("roadEdge").value.trim();
       const roadWidth = parseFloat(document.getElementById("roadWidth").value.trim());
       if (roadEdge && !isNaN(roadWidth)) {
@@ -177,12 +182,12 @@
 
         const road = document.createElementNS("http://www.w3.org/2000/svg", "line");
         road.setAttribute("x1", p1.x * scale + offsetX);
-        road.setAttribute("y1", p1.y * scale + offsetY);
+        road.setAttribute("y1", offsetY - p1.y * scale);
         road.setAttribute("x2", p2.x * scale + offsetX);
-        road.setAttribute("y2", p2.y * scale + offsetY);
-        road.setAttribute("stroke", "#333");
+        road.setAttribute("y2", offsetY - p2.y * scale);
+        road.setAttribute("stroke", "#666");
         road.setAttribute("stroke-width", roadWidth * scale);
-        road.setAttribute("opacity", 0.4);
+        road.setAttribute("opacity", 0.5);
         svg.appendChild(road);
       }
     }
@@ -191,10 +196,65 @@
       document.getElementById("step1").style.display = "none";
       document.getElementById("step2").style.display = "block";
     }
+  </script>
 
+  <!-- STEP 2: GROUND ZONING -->
+  <div class="section" id="step2" style="display:none;">
+    <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
+
+    <div style="margin-bottom: 15px;">
+      <label for="siteWidth">Site Width (m):</label>
+      <input type="number" id="siteWidth" value="30" />
+
+      <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
+      <input type="number" id="siteDepth" value="40" />
+
+      <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
+      <input type="number" id="setbackFront" value="3" />
+
+      <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
+      <input type="number" id="setbackRear" value="3" />
+
+      <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
+      <input type="number" id="setbackSide" value="1.5" />
+
+      <button onclick="generateZoning()">Generate Zoning</button>
+    </div>
+
+    <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
+    <button onclick="goToStep3()">Proceed to Step 3</button>
+  </div>
+
+    <!-- STEP 3: AREA STATEMENT -->
+  <div class="section" id="step3" style="display:none;">
+    <h2>Step 3: Area Statement</h2>
+
+    <button onclick="generateAreaStatement()">Generate Area Statement</button>
+
+    <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
+      <strong>Area Statement will appear here.</strong>
+    </div>
+
+    <button onclick="goToStep4()">Proceed to Step 4</button>
+  </div>
+
+  <!-- STEP 4: BUBBLE DIAGRAM -->
+  <div class="section" id="step4" style="display:none;">
+    <h2>Step 4: Bubble Diagram</h2>
+    <p>[UI and logic for Step 4 will go here]</p>
+    <button onclick="goToStep5()">Proceed to Step 5</button>
+  </div>
+
+  <!-- STEP 5: FINAL PLAN -->
+  <div class="section" id="step5" style="display:none;">
+    <h2>Step 5: Final Plan</h2>
+    <p>[UI and logic for Step 5 will go here]</p>
+  </div>
+
+  <script>
     function generateZoning() {
       const svg = document.getElementById("zoningDiagram");
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      svg.innerHTML = "";
 
       const scale = 10;
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
@@ -250,34 +310,7 @@
       text.setAttribute("fill", "#333");
       svg.appendChild(text);
     }
-  </script>
-  <!-- STEP 3: AREA STATEMENT -->
-  <div class="section" id="step3" style="display:none;">
-    <h2>Step 3: Area Statement</h2>
 
-    <button onclick="generateAreaStatement()">Generate Area Statement</button>
-
-    <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
-      <strong>Area Statement will appear here.</strong>
-    </div>
-
-    <button onclick="goToStep4()">Proceed to Step 4</button>
-  </div>
-
-  <!-- STEP 4: BUBBLE DIAGRAM -->
-  <div class="section" id="step4" style="display:none;">
-    <h2>Step 4: Bubble Diagram</h2>
-    <p>[UI and logic for Step 4 will go here]</p>
-    <button onclick="goToStep5()">Proceed to Step 5</button>
-  </div>
-
-  <!-- STEP 5: FINAL PLAN -->
-  <div class="section" id="step5" style="display:none;">
-    <h2>Step 5: Final Plan</h2>
-    <p>[UI and logic for Step 5 will go here]</p>
-  </div>
-
-  <script>
     function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
       const siteDepth = parseFloat(document.getElementById("siteDepth").value);
