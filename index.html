@@ -20,6 +20,9 @@
       border: 1px solid #ccc;
       margin-top: 20px;
       background-color: #f9f9f9;
+        max-width: 100%;
+    height: auto;
+    display: block;
     }
     button {
       padding: 10px 15px;
@@ -30,27 +33,135 @@
 <body>
   <h1>Prototype V1 – Interactive Architectural Assistant</h1>
 
-  <!-- STEP 1: SITE + CONTEXT -->
-  <div class="section" id="step1">
-    <h2>Step 1: Site + Context Input</h2>
-    <label>Site Boundary Coordinates (e.g., (0,0,0);(21,0,0);(21,25,0);(0,25,0))</label>
-    <textarea id="siteCoords"></textarea>
+<!-- STEP 1: SITE + CONTEXT -->
+<div class="section" id="step1">
+  <h2>Step 1: Site + Context Input</h2>
 
-    <label>Tree Data – (x,y,0,radius,height); separate multiple trees with semicolon</label>
-    <textarea id="treeData"></textarea>
+  <label>Site Boundary Coordinates (e.g., (0,0,0);(21,0,0);(21,25,0);(0,25,0))</label>
+  <textarea id="siteCoords"></textarea>
 
-    <label>Context Buildings – (x,y,0,width,height); separate multiple</label>
-    <textarea id="contextData"></textarea>
+  <label>Tree Data – (x,y,0,radius,height); separate multiple trees with semicolon</label>
+  <textarea id="treeData"></textarea>
 
-    <label>Road Side and Width – Enter boundary edge (x1,y1,0);(x2,y2,0) and road width</label>
-    <textarea id="roadEdge"></textarea>
-    <input id="roadWidth" placeholder="Enter road width (e.g., 6)">
+  <label>Context Buildings – Enter building footprints like:<br>
+  ((x1,y1,z1);(x2,y2,z2);(x3,y3,z3));((x4,y4,z4);(x5,y5,z5);(x6,y6,z6))</label>
+  <textarea id="contextData"></textarea>
 
-    <button onclick="renderStep1()">Render Step 1</button>
-    <button onclick="goToStep2()">Proceed to Step 2</button>
+  <label>Road Side and Width – Enter boundary edge (x1,y1,0);(x2,y2,0) and road width</label>
+  <textarea id="roadEdge"></textarea>
+  <input id="roadWidth" placeholder="Enter road width (e.g., 6)">
 
-    <svg id="canvas" viewBox="0 0 1200 800" width="100%" height="100%"></svg>
-  </div>
+  <button onclick="renderStep1()">Render Step 1</button>
+  <button onclick="goToStep2()">Proceed to Step 2</button>
+
+  <svg id="canvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc;"></svg>
+</div>
+
+<script>
+function renderStep1() {
+  const svg = document.getElementById("canvas");
+  svg.innerHTML = ""; // Clear SVG
+
+  const scale = 10;
+  const margin = 50;
+
+  // ---- SITE BOUNDARY ----
+  const coordsRaw = document.getElementById("siteCoords").value.trim();
+  const sitePoints = coordsRaw.split(";").map(pt => {
+    const [x, y] = pt.replace(/[()]/g, '').split(",").map(Number);
+    return { x, y };
+  });
+
+  if (sitePoints.length < 3) return;
+
+  const allX = sitePoints.map(p => p.x);
+  const allY = sitePoints.map(p => p.y);
+  const minX = Math.min(...allX);
+  const maxX = Math.max(...allX);
+  const minY = Math.min(...allY);
+  const maxY = Math.max(...allY);
+
+  const width = (maxX - minX) * scale + 2 * margin;
+  const height = (maxY - minY) * scale + 2 * margin;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("width", "100%");
+  svg.setAttribute("height", "auto");
+
+  const offsetX = margin - minX * scale;
+  const offsetY = margin - minY * scale;
+
+  // Site polygon
+  const sitePolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
+  sitePolygon.setAttribute("points", pointStr);
+  sitePolygon.setAttribute("fill", "#d0eaff");
+  sitePolygon.setAttribute("stroke", "#0077cc");
+  sitePolygon.setAttribute("stroke-width", 2);
+  svg.appendChild(sitePolygon);
+
+  // ---- TREE DATA ----
+  const trees = document.getElementById("treeData").value.trim();
+  if (trees) {
+    trees.split(";").forEach(t => {
+      const [x, y, , r] = t.replace(/[()]/g, '').split(",").map(Number);
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x * scale + offsetX);
+      circle.setAttribute("cy", y * scale + offsetY);
+      circle.setAttribute("r", r * scale);
+      circle.setAttribute("fill", "green");
+      circle.setAttribute("opacity", 0.5);
+      svg.appendChild(circle);
+    });
+  }
+
+  // ---- CONTEXT BUILDINGS AS POLYGONS ----
+  const buildingsRaw = document.getElementById("contextData").value.trim();
+  if (buildingsRaw) {
+    const buildingGroups = buildingsRaw.match(/\(\((.*?)\)\)/g);
+    if (buildingGroups) {
+      buildingGroups.forEach(group => {
+        const vertexStr = group.replace(/\(|\)/g, "");
+        const vertices = vertexStr.split(";").map(pt => {
+          const [x, y] = pt.trim().split(",").map(Number);
+          return { x, y };
+        });
+
+        if (vertices.length >= 3) {
+          const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          const polyStr = vertices.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
+          polygon.setAttribute("points", polyStr);
+          polygon.setAttribute("fill", "#bbb");
+          polygon.setAttribute("stroke", "#333");
+          polygon.setAttribute("stroke-width", 1);
+          polygon.setAttribute("opacity", 0.6);
+          svg.appendChild(polygon);
+        }
+      });
+    }
+  }
+
+  // ---- ROAD DRAWING ----
+  const roadEdge = document.getElementById("roadEdge").value.trim();
+  const roadWidth = parseFloat(document.getElementById("roadWidth").value.trim());
+  if (roadEdge && !isNaN(roadWidth)) {
+    const [p1, p2] = roadEdge.split(";").map(p => {
+      const [x, y] = p.replace(/[()]/g, '').split(",").map(Number);
+      return { x, y };
+    });
+
+    const road = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    road.setAttribute("x1", p1.x * scale + offsetX);
+    road.setAttribute("y1", p1.y * scale + offsetY);
+    road.setAttribute("x2", p2.x * scale + offsetX);
+    road.setAttribute("y2", p2.y * scale + offsetY);
+    road.setAttribute("stroke", "#333");
+    road.setAttribute("stroke-width", roadWidth * scale);
+    road.setAttribute("opacity", 0.4);
+    svg.appendChild(road);
+  }
+}
+</script>
 
   <!-- STEP 2 Placeholder -->
   <div class="section" id="step2" style="display:none;">
@@ -133,6 +244,20 @@ function generateZoning() {
   text.setAttribute("font-size", "14px");
   text.setAttribute("fill", "#333");
   svg.appendChild(text);
+
+  // Auto-resize the SVG viewBox to fit everything nicely
+const totalWidth = siteWidth * scale + 100;  // add margins
+const totalHeight = siteDepth * scale + 100;
+
+svg.setAttribute("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+svg.setAttribute("width", "100%");
+svg.setAttribute("height", "auto");
+
+const margin = 50;
+const siteX = margin;
+const siteY = margin;
+
 }
 </script>
 
