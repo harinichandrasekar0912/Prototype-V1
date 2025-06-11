@@ -2,194 +2,223 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prototype V1</title>
+  <title>Architectural Assistant Prototype V1</title>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-    textarea, input, select {
+    .section {
+      margin-bottom: 30px;
+    }
+    textarea, input {
       width: 100%;
-      margin-bottom: 10px;
       padding: 8px;
-      font-family: monospace;
+      margin: 5px 0;
+    }
+    svg {
+      border: 1px solid #ccc;
+      margin-top: 20px;
+      background-color: #f9f9f9;
     }
     button {
       padding: 10px 15px;
-      margin-bottom: 20px;
-      cursor: pointer;
-    }
-    .step {
-      border: 1px solid #ccc;
-      padding: 20px;
-      margin-bottom: 40px;
-    }
-    #svg-container {
-      border: 1px solid #000;
-      width: 100%;
-      height: 600px;
-    }
-    svg {
-      width: 100%;
-      height: 100%;
-      background-color: #f9f9f9;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>Prototype V1 - Interactive Architectural Assistant</h1>
+  <h1>Prototype V1 – Interactive Architectural Assistant</h1>
 
-  <!-- SVG Output Area -->
-  <div id="svg-container">
-    <svg id="site-svg" viewBox="-100 -100 400 400"></svg>
+  <!-- STEP 1: SITE + CONTEXT -->
+  <div class="section" id="step1">
+    <h2>Step 1: Site + Context Input</h2>
+    <label>Site Boundary Coordinates (e.g., (0,0,0);(21,0,0);(21,25,0);(0,25,0))</label>
+    <textarea id="siteCoords"></textarea>
+
+    <label>Tree Data – (x,y,0,radius,height); separate multiple trees with semicolon</label>
+    <textarea id="treeData"></textarea>
+
+    <label>Context Buildings – (x,y,0,width,height); separate multiple</label>
+    <textarea id="contextData"></textarea>
+
+    <label>Road Side and Width – Enter boundary edge (x1,y1,0);(x2,y2,0) and road width</label>
+    <textarea id="roadEdge"></textarea>
+    <input id="roadWidth" placeholder="Enter road width (e.g., 6)">
+
+    <button onclick="renderStep1()">Render Step 1</button>
+    <button onclick="goToStep2()">Proceed to Step 2</button>
+
+    <svg id="canvas" width="800" height="800"></svg>
   </div>
 
-  <!-- Step 1 -->
-  <div class="step">
-    <h2>Step 1: Site Boundary</h2>
-    <textarea id="site-input" placeholder="Enter site vertices (x,y,0)"></textarea>
-    <button onclick="drawSiteBoundary()">Draw Site Boundary</button>
+  <!-- STEP 2 Placeholder -->
+  <div class="section" id="step2" style="display:none;">
+    <h2>Step 2: Ground Zoning</h2>
+    <p>[UI and logic for Step 2 will go here]</p>
+    <button onclick="goToStep3()">Proceed to Step 3</button>
   </div>
 
-  <div class="step">
-    <h2>Step 1B: Vegetation</h2>
-    <textarea id="tree-input" placeholder="Enter trees: x,y,radius,height per line"></textarea>
-    <button onclick="drawVegetation()">Draw Trees</button>
+  <!-- STEP 3 Placeholder -->
+  <div class="section" id="step3" style="display:none;">
+    <h2>Step 3: Area Statement</h2>
+    <p>[UI and logic for Step 3 will go here]</p>
+    <button onclick="goToStep4()">Proceed to Step 4</button>
   </div>
 
-  <div class="step">
-    <h2>Step 1C: Context (Roads & Buildings)</h2>
-    <textarea id="road-input" placeholder="Enter road boundaries as (x,y,0)"></textarea>
-    <textarea id="building-input" placeholder="Enter building rectangles: x,y,width,height"></textarea>
-    <button onclick="drawContext()">Draw Context</button>
+  <!-- STEP 4 Placeholder -->
+  <div class="section" id="step4" style="display:none;">
+    <h2>Step 4: Bubble Diagram</h2>
+    <p>[UI and logic for Step 4 will go here]</p>
+    <button onclick="goToStep5()">Proceed to Step 5</button>
   </div>
 
-  <div class="step">
-    <h2>Step 1D: Setbacks</h2>
-    <button onclick="drawSetbacks()">Draw Setbacks</button>
-  </div>
-
-  <div class="step">
-    <h2>Step 1E: Climate Features</h2>
-    <textarea id="wind-input" placeholder="Wind: x1,y1 -> x2,y2"></textarea>
-    <textarea id="sun-input" placeholder="Sun Path (dummy)"></textarea>
-    <textarea id="noise-input" placeholder="Noise sources: x,y,radius"></textarea>
-    <textarea id="view-input" placeholder="Views: x1,y1 -> x2,y2"></textarea>
-    <button onclick="drawClimate()">Draw Climate Data</button>
+  <!-- STEP 5 Placeholder -->
+  <div class="section" id="step5" style="display:none;">
+    <h2>Step 5: Final Plan</h2>
+    <p>[UI and logic for Step 5 will go here]</p>
   </div>
 
   <script>
-    const svg = document.getElementById("site-svg");
-
-    function drawSiteBoundary() {
-      const coords = document.getElementById("site-input").value.trim().split("\n").map(line => {
-        const [x, y] = line.replace(/[()]/g, '').split(",").map(Number);
-        return `${x},${-y}`;
-      });
-      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      polygon.setAttribute("points", coords.join(" "));
-      polygon.setAttribute("stroke", "black");
-      polygon.setAttribute("fill", "none");
-      polygon.setAttribute("stroke-width", "2");
-      svg.appendChild(polygon);
+    function parseCoords(str) {
+      return str.split(';').map(s => s.replace(/[()]/g, '').split(',').map(Number));
     }
 
-    function drawVegetation() {
-      const trees = document.getElementById("tree-input").value.trim().split("\n");
-      trees.forEach(line => {
-        const [x, y, r] = line.split(",").map(Number);
+    function renderStep1() {
+      const svg = document.getElementById('canvas');
+      svg.innerHTML = '';
+
+      const scale = 20; // 1m = 20px
+      const width = svg.width.baseVal.value;
+      const height = svg.height.baseVal.value;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      // Draw Grid
+      for (let x = -width/2; x < width; x += scale) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", centerX + x);
+        line.setAttribute("x2", centerX + x);
+        line.setAttribute("y1", 0);
+        line.setAttribute("y2", height);
+        line.setAttribute("stroke", "#ddd");
+        line.setAttribute("stroke-width", 0.5);
+        svg.appendChild(line);
+      }
+      for (let y = -height/2; y < height; y += scale) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("y1", centerY + y);
+        line.setAttribute("y2", centerY + y);
+        line.setAttribute("x1", 0);
+        line.setAttribute("x2", width);
+        line.setAttribute("stroke", "#ddd");
+        line.setAttribute("stroke-width", 0.5);
+        svg.appendChild(line);
+      }
+
+      // Axis arrows
+      const axes = [
+        { x1: 0, y1: centerY, x2: width, y2: centerY },
+        { x1: centerX, y1: 0, x2: centerX, y2: height }
+      ];
+      axes.forEach(a => {
+        const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        axis.setAttribute("x1", a.x1);
+        axis.setAttribute("x2", a.x2);
+        axis.setAttribute("y1", a.y1);
+        axis.setAttribute("y2", a.y2);
+        axis.setAttribute("stroke", "#999");
+        axis.setAttribute("stroke-width", 2);
+        svg.appendChild(axis);
+      });
+
+      // SITE BOUNDARY
+      const siteCoords = parseCoords(document.getElementById('siteCoords').value);
+      for (let i = 0; i < siteCoords.length; i++) {
+        const [x1, y1] = siteCoords[i];
+        const [x2, y2] = siteCoords[(i + 1) % siteCoords.length];
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", centerX + x1 * scale);
+        line.setAttribute("y1", centerY - y1 * scale);
+        line.setAttribute("x2", centerX + x2 * scale);
+        line.setAttribute("y2", centerY - y2 * scale);
+        line.setAttribute("stroke", "black");
+        line.setAttribute("stroke-width", 2);
+        svg.appendChild(line);
+      }
+
+      // TREES
+      const trees = parseCoords(document.getElementById('treeData').value);
+      trees.forEach(([x, y, _z, r]) => {
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", x);
-        circle.setAttribute("cy", -y);
-        circle.setAttribute("r", r);
+        circle.setAttribute("cx", centerX + x * scale);
+        circle.setAttribute("cy", centerY - y * scale);
+        circle.setAttribute("r", r * scale);
         circle.setAttribute("fill", "green");
-        circle.setAttribute("fill-opacity", "0.25");
+        circle.setAttribute("fill-opacity", 0.25);
+        circle.setAttribute("stroke", "green");
         svg.appendChild(circle);
       });
-    }
 
-    function drawContext() {
-      const roads = document.getElementById("road-input").value.trim().split("\n");
-      roads.forEach(line => {
-        const points = line.replace(/[()]/g, '').split(",").map(Number);
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        const polyPts = [];
-        for (let i = 0; i < points.length; i += 2) {
-          polyPts.push(`${points[i]},${-points[i+1]}`);
-        }
-        rect.setAttribute("points", polyPts.join(" "));
-        rect.setAttribute("fill", "darkgray");
-        rect.setAttribute("fill-opacity", "0.3");
-        rect.setAttribute("stroke", "gray");
-        svg.appendChild(rect);
-      });
-
-      const buildings = document.getElementById("building-input").value.trim().split("\n");
-      buildings.forEach(line => {
-        const [x, y, w, h] = line.split(",").map(Number);
+      // CONTEXT BUILDINGS
+      const contexts = parseCoords(document.getElementById('contextData').value);
+      contexts.forEach(([x, y, _z, w, h]) => {
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", x);
-        rect.setAttribute("y", -y - h);
-        rect.setAttribute("width", w);
-        rect.setAttribute("height", h);
-        rect.setAttribute("fill", "lightgray");
-        rect.setAttribute("fill-opacity", "0.3");
+        rect.setAttribute("x", centerX + x * scale);
+        rect.setAttribute("y", centerY - y * scale - h * scale);
+        rect.setAttribute("width", w * scale);
+        rect.setAttribute("height", h * scale);
+        rect.setAttribute("fill", "lightgrey");
+        rect.setAttribute("fill-opacity", 0.3);
+        rect.setAttribute("stroke", "lightgrey");
         svg.appendChild(rect);
       });
+
+      // ROAD
+      const roadEdge = parseCoords(document.getElementById('roadEdge').value);
+      const roadWidth = parseFloat(document.getElementById('roadWidth').value);
+      if (roadEdge.length === 2 && !isNaN(roadWidth)) {
+        const [[x1, y1], [x2, y2]] = roadEdge;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const pad = 10;
+        const ux = dx / length;
+        const uy = dy / length;
+        const ox = -uy;
+        const oy = ux;
+
+        const points = [
+          [x1 - pad * ux + roadWidth * ox / 2, y1 - pad * uy + roadWidth * oy / 2],
+          [x2 + pad * ux + roadWidth * ox / 2, y2 + pad * uy + roadWidth * oy / 2],
+          [x2 + pad * ux - roadWidth * ox / 2, y2 + pad * uy - roadWidth * oy / 2],
+          [x1 - pad * ux - roadWidth * ox / 2, y1 - pad * uy - roadWidth * oy / 2]
+        ];
+
+        const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        road.setAttribute("points", points.map(([x, y]) => `${centerX + x * scale},${centerY - y * scale}`).join(' '));
+        road.setAttribute("fill", "darkgrey");
+        road.setAttribute("fill-opacity", 0.3);
+        road.setAttribute("stroke", "darkgrey");
+        svg.appendChild(road);
+      }
     }
 
-    function drawSetbacks() {
-      // Simple offset for now: rectangle inside the site
-      const setback = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      setback.setAttribute("x", 3);
-      setback.setAttribute("y", -13);
-      setback.setAttribute("width", 14);
-      setback.setAttribute("height", 10);
-      setback.setAttribute("stroke", "red");
-      setback.setAttribute("stroke-dasharray", "4");
-      setback.setAttribute("fill", "none");
-      svg.appendChild(setback);
+    function goToStep2() {
+      document.getElementById('step1').style.display = 'none';
+      document.getElementById('step2').style.display = 'block';
     }
-
-    function drawClimate() {
-      const [x1, y1, x2, y2] = document.getElementById("wind-input").value.replace(/[()]/g, '').split(",").map(Number);
-      const wind = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      wind.setAttribute("x1", x1);
-      wind.setAttribute("y1", -y1);
-      wind.setAttribute("x2", x2);
-      wind.setAttribute("y2", -y2);
-      wind.setAttribute("stroke", "blue");
-      wind.setAttribute("marker-end", "url(#arrow)");
-      svg.appendChild(wind);
-
-      const views = document.getElementById("view-input").value.trim().split("\n");
-      views.forEach(line => {
-        const [vx1, vy1, vx2, vy2] = line.split(",").map(Number);
-        const vline = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        vline.setAttribute("x1", vx1);
-        vline.setAttribute("y1", -vy1);
-        vline.setAttribute("x2", vx2);
-        vline.setAttribute("y2", -vy2);
-        vline.setAttribute("stroke", "pink");
-        vline.setAttribute("stroke-dasharray", "4");
-        svg.appendChild(vline);
-      });
-
-      const noises = document.getElementById("noise-input").value.trim().split("\n");
-      noises.forEach(line => {
-        const [cx, cy, r] = line.split(",").map(Number);
-        for (let i = 1; i <= r; i++) {
-          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-          circle.setAttribute("cx", cx);
-          circle.setAttribute("cy", -cy);
-          circle.setAttribute("r", i);
-          circle.setAttribute("stroke", "orange");
-          circle.setAttribute("fill", "none");
-          svg.appendChild(circle);
-        }
-      });
+    function goToStep3() {
+      document.getElementById('step2').style.display = 'none';
+      document.getElementById('step3').style.display = 'block';
+    }
+    function goToStep4() {
+      document.getElementById('step3').style.display = 'none';
+      document.getElementById('step4').style.display = 'block';
+    }
+    function goToStep5() {
+      document.getElementById('step4').style.display = 'none';
+      document.getElementById('step5').style.display = 'block';
     }
   </script>
 </body>
