@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Architectural Assistant Prototype V1</title>
   <style>
     body {
@@ -20,9 +20,9 @@
       border: 1px solid #ccc;
       margin-top: 20px;
       background-color: #f9f9f9;
-        max-width: 100%;
-    height: auto;
-    display: block;
+      max-width: 100%;
+      height: auto;
+      display: block;
     }
     button {
       padding: 10px 15px;
@@ -33,101 +33,128 @@
 <body>
   <h1>Prototype V1 – Interactive Architectural Assistant</h1>
 
-<!-- STEP 1: SITE + CONTEXT -->
-<div class="section" id="step1">
-  <h2>Step 1: Site + Context Input</h2>
+  <!-- STEP 1: SITE + CONTEXT -->
+  <div class="section" id="step1">
+    <h2>Step 1: Site + Context Input</h2>
 
-  <label>Site Boundary Coordinates (e.g., (0,0,0);(21,0,0);(21,25,0);(0,25,0))</label>
-  <textarea id="siteCoords"></textarea>
+    <label>Site Boundary Coordinates (e.g., (0,0,0);(21,0,0);(21,25,0);(0,25,0))</label>
+    <textarea id="siteCoords"></textarea>
 
-  <label>Tree Data – (x,y,0,radius,height); separate multiple trees with semicolon</label>
-  <textarea id="treeData"></textarea>
+    <label>Tree Data – (x,y,0,radius,height); separate multiple trees with semicolon</label>
+    <textarea id="treeData"></textarea>
 
-  <label>Context Buildings – Enter building footprints like:<br>
-  ((x1,y1,z1);(x2,y2,z2);(x3,y3,z3));((x4,y4,z4);(x5,y5,z5);(x6,y6,z6))</label>
-  <textarea id="contextData"></textarea>
+    <label>Context Buildings – Enter building footprints like:<br>
+    ((x1,y1,z1);(x2,y2,z2);(x3,y3,z3));((x4,y4,z4);(x5,y5,z5);(x6,y6,z6))</label>
+    <textarea id="contextData"></textarea>
 
-  <label>Road Side and Width – Enter boundary edge (x1,y1,0);(x2,y2,0) and road width</label>
-  <textarea id="roadEdge"></textarea>
-  <input id="roadWidth" placeholder="Enter road width (e.g., 6)">
+    <label>Road Side and Width – Enter boundary edge (x1,y1,0);(x2,y2,0) and road width</label>
+    <textarea id="roadEdge"></textarea>
+    <input id="roadWidth" placeholder="Enter road width (e.g., 6)" />
 
-  <button onclick="renderStep1()">Render Step 1</button>
-  <button onclick="goToStep2()">Proceed to Step 2</button>
+    <button onclick="renderStep1()">Render Step 1</button>
+    <button onclick="goToStep2()">Proceed to Step 2</button>
 
-  <svg id="canvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc;"></svg>
-</div>
+    <svg id="canvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc;"></svg>
+  </div>
 
-<script>
-function renderStep1() {
-  const svg = document.getElementById("canvas");
-  svg.innerHTML = ""; // Clear SVG
+  <!-- STEP 2: GROUND ZONING -->
+  <div class="section" id="step2" style="display:none;">
+    <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
 
-  const scale = 10;
-  const margin = 50;
+    <div style="margin-bottom: 15px;">
+      <label for="siteWidth">Site Width (m):</label>
+      <input type="number" id="siteWidth" value="30" />
 
-  // ---- SITE BOUNDARY ----
-  const coordsRaw = document.getElementById("siteCoords").value.trim();
-  const sitePoints = coordsRaw.split(";").map(pt => {
-    const [x, y] = pt.replace(/[()]/g, '').split(",").map(Number);
-    return { x, y };
-  });
+      <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
+      <input type="number" id="siteDepth" value="40" />
 
-  if (sitePoints.length < 3) return;
+      <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
+      <input type="number" id="setbackFront" value="3" />
 
-  const allX = sitePoints.map(p => p.x);
-  const allY = sitePoints.map(p => p.y);
-  const minX = Math.min(...allX);
-  const maxX = Math.max(...allX);
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
+      <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
+      <input type="number" id="setbackRear" value="3" />
 
-  const width = (maxX - minX) * scale + 2 * margin;
-  const height = (maxY - minY) * scale + 2 * margin;
+      <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
+      <input type="number" id="setbackSide" value="1.5" />
 
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "auto");
+      <button onclick="generateZoning()">Generate Zoning</button>
+    </div>
 
-  const offsetX = margin - minX * scale;
-  const offsetY = margin - minY * scale;
+    <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
+    <button onclick="goToStep3()">Proceed to Step 3</button>
+  </div>
 
-  // Site polygon
-  const sitePolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
-  sitePolygon.setAttribute("points", pointStr);
-  sitePolygon.setAttribute("fill", "#d0eaff");
-  sitePolygon.setAttribute("stroke", "#0077cc");
-  sitePolygon.setAttribute("stroke-width", 2);
-  svg.appendChild(sitePolygon);
+  <script>
+    function parseCoords(str) {
+      return str.split(";").map(s => s.replace(/[()]/g, "").split(",").map(Number));
+    }
 
-  // ---- TREE DATA ----
-  const trees = document.getElementById("treeData").value.trim();
-  if (trees) {
-    trees.split(";").forEach(t => {
-      const [x, y, , r] = t.replace(/[()]/g, '').split(",").map(Number);
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("cx", x * scale + offsetX);
-      circle.setAttribute("cy", y * scale + offsetY);
-      circle.setAttribute("r", r * scale);
-      circle.setAttribute("fill", "green");
-      circle.setAttribute("opacity", 0.5);
-      svg.appendChild(circle);
-    });
-  }
+    function renderStep1() {
+      const svg = document.getElementById("canvas");
+      svg.innerHTML = "";
 
-  // ---- CONTEXT BUILDINGS AS POLYGONS ----
-  const buildingsRaw = document.getElementById("contextData").value.trim();
-  if (buildingsRaw) {
-    const buildingGroups = buildingsRaw.match(/\(\((.*?)\)\)/g);
-    if (buildingGroups) {
-      buildingGroups.forEach(group => {
-        const vertexStr = group.replace(/\(|\)/g, "");
-        const vertices = vertexStr.split(";").map(pt => {
-          const [x, y] = pt.trim().split(",").map(Number);
-          return { x, y };
+      const scale = 10;
+      const siteRaw = document.getElementById("siteCoords").value.trim();
+      const sitePoints = siteRaw.split(";").map(pt => {
+        const [x, y] = pt.replace(/[()]/g, "").split(",").map(Number);
+        return { x, y };
+      });
+
+      if (sitePoints.length < 3) return;
+
+      const allX = sitePoints.map(p => p.x);
+      const allY = sitePoints.map(p => p.y);
+      const minX = Math.min(...allX);
+      const maxX = Math.max(...allX);
+      const minY = Math.min(...allY);
+      const maxY = Math.max(...allY);
+
+      const padding = 50;
+      const bboxWidth = (maxX - minX) * scale + 2 * padding;
+      const bboxHeight = (maxY - minY) * scale + 2 * padding;
+      const offsetX = padding - minX * scale;
+      const offsetY = padding - minY * scale;
+
+      svg.setAttribute("viewBox", `0 0 ${bboxWidth} ${bboxHeight}`);
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "auto");
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+      // Site polygon
+      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
+      polygon.setAttribute("points", pointStr);
+      polygon.setAttribute("fill", "#d0eaff");
+      polygon.setAttribute("stroke", "#0077cc");
+      polygon.setAttribute("stroke-width", 2);
+      svg.appendChild(polygon);
+
+      // Trees
+      const trees = document.getElementById("treeData").value.trim();
+      if (trees) {
+        trees.split(";").forEach(t => {
+          const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", x * scale + offsetX);
+          circle.setAttribute("cy", y * scale + offsetY);
+          circle.setAttribute("r", r * scale);
+          circle.setAttribute("fill", "green");
+          circle.setAttribute("opacity", 0.5);
+          svg.appendChild(circle);
         });
+      }
 
-        if (vertices.length >= 3) {
+      // Context buildings (polygon format)
+      const buildingRaw = document.getElementById("contextData").value.trim();
+      const buildings = buildingRaw.match(/\(\((.*?)\)\)/g);
+      if (buildings) {
+        buildings.forEach(group => {
+          const vertexStr = group.replace(/\(|\)/g, "");
+          const vertices = vertexStr.split(";").map(pt => {
+            const [x, y] = pt.trim().split(",").map(Number);
+            return { x, y };
+          });
+
           const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
           const polyStr = vertices.map(p => `${p.x * scale + offsetX},${p.y * scale + offsetY}`).join(" ");
           polygon.setAttribute("points", polyStr);
@@ -136,342 +163,162 @@ function renderStep1() {
           polygon.setAttribute("stroke-width", 1);
           polygon.setAttribute("opacity", 0.6);
           svg.appendChild(polygon);
-        }
-      });
+        });
+      }
+
+      // Road edge
+      const roadEdge = document.getElementById("roadEdge").value.trim();
+      const roadWidth = parseFloat(document.getElementById("roadWidth").value.trim());
+      if (roadEdge && !isNaN(roadWidth)) {
+        const [p1, p2] = roadEdge.split(";").map(p => {
+          const [x, y] = p.replace(/[()]/g, "").split(",").map(Number);
+          return { x, y };
+        });
+
+        const road = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        road.setAttribute("x1", p1.x * scale + offsetX);
+        road.setAttribute("y1", p1.y * scale + offsetY);
+        road.setAttribute("x2", p2.x * scale + offsetX);
+        road.setAttribute("y2", p2.y * scale + offsetY);
+        road.setAttribute("stroke", "#333");
+        road.setAttribute("stroke-width", roadWidth * scale);
+        road.setAttribute("opacity", 0.4);
+        svg.appendChild(road);
+      }
     }
-  }
 
-  // ---- ROAD DRAWING ----
-  const roadEdge = document.getElementById("roadEdge").value.trim();
-  const roadWidth = parseFloat(document.getElementById("roadWidth").value.trim());
-  if (roadEdge && !isNaN(roadWidth)) {
-    const [p1, p2] = roadEdge.split(";").map(p => {
-      const [x, y] = p.replace(/[()]/g, '').split(",").map(Number);
-      return { x, y };
-    });
+    function goToStep2() {
+      document.getElementById("step1").style.display = "none";
+      document.getElementById("step2").style.display = "block";
+    }
 
-    const road = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    road.setAttribute("x1", p1.x * scale + offsetX);
-    road.setAttribute("y1", p1.y * scale + offsetY);
-    road.setAttribute("x2", p2.x * scale + offsetX);
-    road.setAttribute("y2", p2.y * scale + offsetY);
-    road.setAttribute("stroke", "#333");
-    road.setAttribute("stroke-width", roadWidth * scale);
-    road.setAttribute("opacity", 0.4);
-    svg.appendChild(road);
-  }
-}
-</script>
+    function generateZoning() {
+      const svg = document.getElementById("zoningDiagram");
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-  <!-- STEP 2 Placeholder -->
-  <div class="section" id="step2" style="display:none;">
-    <h2>Step 2: Ground Zoning</h2>
-    <!-- STEP 2: Ground Zoning Logic and Footprint Visualization -->
-<div id="step-2-container" style="padding: 20px;">
-  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
+      const scale = 10;
+      const siteWidth = parseFloat(document.getElementById("siteWidth").value);
+      const siteDepth = parseFloat(document.getElementById("siteDepth").value);
+      const setbackFront = parseFloat(document.getElementById("setbackFront").value);
+      const setbackRear = parseFloat(document.getElementById("setbackRear").value);
+      const setbackSide = parseFloat(document.getElementById("setbackSide").value);
 
-  <!-- Input section -->
-  <div style="margin-bottom: 15px;">
-    <label for="siteWidth">Site Width (m):</label>
-    <input type="number" id="siteWidth" value="30">
+      const margin = 50;
+      const totalWidth = siteWidth * scale + 2 * margin;
+      const totalHeight = siteDepth * scale + 2 * margin;
+      const siteX = margin;
+      const siteY = margin;
 
-    <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
-    <input type="number" id="siteDepth" value="40">
+      svg.setAttribute("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "auto");
 
-    <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
-    <input type="number" id="setbackFront" value="3">
+      // Site boundary
+      const siteRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      siteRect.setAttribute("x", siteX);
+      siteRect.setAttribute("y", siteY);
+      siteRect.setAttribute("width", siteWidth * scale);
+      siteRect.setAttribute("height", siteDepth * scale);
+      siteRect.setAttribute("fill", "#f0f0f0");
+      siteRect.setAttribute("stroke", "#000");
+      siteRect.setAttribute("stroke-width", "2");
+      svg.appendChild(siteRect);
 
-    <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
-    <input type="number" id="setbackRear" value="3">
-    
-    <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
-    <input type="number" id="setbackSide" value="1.5">
+      // Buildable area
+      const buildableX = siteX + setbackSide * scale;
+      const buildableY = siteY + setbackFront * scale;
+      const buildableWidth = (siteWidth - 2 * setbackSide) * scale;
+      const buildableHeight = (siteDepth - setbackFront - setbackRear) * scale;
 
-    <button onclick="generateZoning()">Generate Zoning</button>
-  </div>
+      const buildableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      buildableRect.setAttribute("x", buildableX);
+      buildableRect.setAttribute("y", buildableY);
+      buildableRect.setAttribute("width", buildableWidth);
+      buildableRect.setAttribute("height", buildableHeight);
+      buildableRect.setAttribute("fill", "#a3d3ff");
+      buildableRect.setAttribute("stroke", "#0077cc");
+      buildableRect.setAttribute("stroke-width", "2");
+      svg.appendChild(buildableRect);
 
-  <!-- SVG diagram area -->
-  <svg id="zoningDiagram" width="600" height="600" style="border: 1px solid #aaa;"></svg>
-</div>
-
-<script>
-function generateZoning() {
-  const svg = document.getElementById("zoningDiagram");
-  while (svg.firstChild) svg.removeChild(svg.firstChild); // Clear previous diagram
-
-  const siteWidth = parseFloat(document.getElementById("siteWidth").value);
-  const siteDepth = parseFloat(document.getElementById("siteDepth").value);
-  const setbackFront = parseFloat(document.getElementById("setbackFront").value);
-  const setbackRear = parseFloat(document.getElementById("setbackRear").value);
-  const setbackSide = parseFloat(document.getElementById("setbackSide").value);
-
-  const scale = 10; // 1m = 10px
-  const siteX = 50;
-  const siteY = 50;
-
-  // Site boundary
-  const siteRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  siteRect.setAttribute("x", siteX);
-  siteRect.setAttribute("y", siteY);
-  siteRect.setAttribute("width", siteWidth * scale);
-  siteRect.setAttribute("height", siteDepth * scale);
-  siteRect.setAttribute("fill", "#f0f0f0");
-  siteRect.setAttribute("stroke", "#000");
-  siteRect.setAttribute("stroke-width", "2");
-  svg.appendChild(siteRect);
-
-  // Buildable area (after setbacks)
-  const buildableX = siteX + setbackSide * scale;
-  const buildableY = siteY + setbackFront * scale;
-  const buildableWidth = (siteWidth - 2 * setbackSide) * scale;
-  const buildableHeight = (siteDepth - setbackFront - setbackRear) * scale;
-
-  const buildableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  buildableRect.setAttribute("x", buildableX);
-  buildableRect.setAttribute("y", buildableY);
-  buildableRect.setAttribute("width", buildableWidth);
-  buildableRect.setAttribute("height", buildableHeight);
-  buildableRect.setAttribute("fill", "#a3d3ff");
-  buildableRect.setAttribute("stroke", "#0077cc");
-  buildableRect.setAttribute("stroke-width", "2");
-  svg.appendChild(buildableRect);
-
-  // Labels
-  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  text.setAttribute("x", siteX + 5);
-  text.setAttribute("y", siteY - 10);
-  text.textContent = "Site & Buildable Footprint";
-  text.setAttribute("font-size", "14px");
-  text.setAttribute("fill", "#333");
-  svg.appendChild(text);
-
-  // Auto-resize the SVG viewBox to fit everything nicely
-const totalWidth = siteWidth * scale + 100;  // add margins
-const totalHeight = siteDepth * scale + 100;
-
-svg.setAttribute("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
-svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-svg.setAttribute("width", "100%");
-svg.setAttribute("height", "auto");
-
-const margin = 50;
-const siteX = margin;
-const siteY = margin;
-
-}
-</script>
-
-    <button onclick="goToStep3()">Proceed to Step 3</button>
-  </div>
-
-  <!-- STEP 3 Placeholder -->
+      // Label
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", siteX + 5);
+      text.setAttribute("y", siteY - 10);
+      text.textContent = "Site & Buildable Footprint";
+      text.setAttribute("font-size", "14px");
+      text.setAttribute("fill", "#333");
+      svg.appendChild(text);
+    }
+  </script>
+  <!-- STEP 3: AREA STATEMENT -->
   <div class="section" id="step3" style="display:none;">
     <h2>Step 3: Area Statement</h2>
-    <!-- STEP 3: Area Statement Generation -->
-<div id="step-3-container" style="padding: 20px;">
-  <h2>Step 3: Area Statement Generator</h2>
 
-  <button onclick="generateAreaStatement()">Generate Area Statement</button>
+    <button onclick="generateAreaStatement()">Generate Area Statement</button>
 
-  <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
-    <strong>Area Statement will appear here.</strong>
-  </div>
-</div>
-
-<script>
-function generateAreaStatement() {
-  const siteWidth = parseFloat(document.getElementById("siteWidth").value);
-  const siteDepth = parseFloat(document.getElementById("siteDepth").value);
-  const setbackFront = parseFloat(document.getElementById("setbackFront").value);
-  const setbackRear = parseFloat(document.getElementById("setbackRear").value);
-  const setbackSide = parseFloat(document.getElementById("setbackSide").value);
-
-  const siteArea = siteWidth * siteDepth; // in sq.m
-  const buildableWidth = siteWidth - (2 * setbackSide);
-  const buildableDepth = siteDepth - (setbackFront + setbackRear);
-  const buildableArea = buildableWidth * buildableDepth;
-
-  // Assume default FSI = 1.5 (modifiable later)
-  const FSI = 1.5;
-  const builtUpArea = siteArea * FSI;
-
-  const outputHTML = `
-    <h3>Area Statement</h3>
-    <ul>
-      <li><strong>Site Area:</strong> ${siteArea.toFixed(2)} sq.m</li>
-      <li><strong>Buildable Area (after setbacks):</strong> ${buildableArea.toFixed(2)} sq.m</li>
-      <li><strong>Assumed FSI:</strong> ${FSI}</li>
-      <li><strong>Permissible Built-up Area:</strong> ${builtUpArea.toFixed(2)} sq.m</li>
-      <li><strong>Setbacks Applied:</strong> Front = ${setbackFront} m, Rear = ${setbackRear} m, Side = ${setbackSide} m (both sides)</li>
-    </ul>
-  `;
-
-  document.getElementById("areaStatementOutput").innerHTML = outputHTML;
-}
-</script>
+    <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
+      <strong>Area Statement will appear here.</strong>
+    </div>
 
     <button onclick="goToStep4()">Proceed to Step 4</button>
   </div>
 
-  <!-- STEP 4 Placeholder -->
+  <!-- STEP 4: BUBBLE DIAGRAM -->
   <div class="section" id="step4" style="display:none;">
     <h2>Step 4: Bubble Diagram</h2>
     <p>[UI and logic for Step 4 will go here]</p>
     <button onclick="goToStep5()">Proceed to Step 5</button>
   </div>
 
-  <!-- STEP 5 Placeholder -->
+  <!-- STEP 5: FINAL PLAN -->
   <div class="section" id="step5" style="display:none;">
     <h2>Step 5: Final Plan</h2>
     <p>[UI and logic for Step 5 will go here]</p>
   </div>
 
   <script>
-    function parseCoords(str) {
-      return str.split(';').map(s => s.replace(/[()]/g, '').split(',').map(Number));
-    }
-    function goToStep(stepNumber) {
-  for (let i = 1; i <= 5; i++) {
-    const step = document.getElementById("step" + i);
-    if (step) step.style.display = i === stepNumber ? "block" : "none";
-  }
-}
+    function generateAreaStatement() {
+      const siteWidth = parseFloat(document.getElementById("siteWidth").value);
+      const siteDepth = parseFloat(document.getElementById("siteDepth").value);
+      const setbackFront = parseFloat(document.getElementById("setbackFront").value);
+      const setbackRear = parseFloat(document.getElementById("setbackRear").value);
+      const setbackSide = parseFloat(document.getElementById("setbackSide").value);
 
-    function renderStep1() {
-      const svg = document.getElementById('canvas');
-      svg.innerHTML = '';
+      const siteArea = siteWidth * siteDepth;
+      const buildableWidth = siteWidth - (2 * setbackSide);
+      const buildableDepth = siteDepth - (setbackFront + setbackRear);
+      const buildableArea = buildableWidth * buildableDepth;
 
-      const scale = 20; // 1m = 20px
-      const width = svg.width.baseVal.value;
-      const height = svg.height.baseVal.value;
-      const centerX = width / 2;
-      const centerY = height / 2;
+      const FSI = 1.5;
+      const builtUpArea = siteArea * FSI;
 
-      // Draw Grid
-      for (let x = -width/2; x < width; x += scale) {
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", centerX + x);
-        line.setAttribute("x2", centerX + x);
-        line.setAttribute("y1", 0);
-        line.setAttribute("y2", height);
-        line.setAttribute("stroke", "#ddd");
-        line.setAttribute("stroke-width", 0.5);
-        svg.appendChild(line);
-      }
-      for (let y = -height/2; y < height; y += scale) {
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("y1", centerY + y);
-        line.setAttribute("y2", centerY + y);
-        line.setAttribute("x1", 0);
-        line.setAttribute("x2", width);
-        line.setAttribute("stroke", "#ddd");
-        line.setAttribute("stroke-width", 0.5);
-        svg.appendChild(line);
-      }
-
-      // Axis arrows
-      const axes = [
-        { x1: 0, y1: centerY, x2: width, y2: centerY },
-        { x1: centerX, y1: 0, x2: centerX, y2: height }
-      ];
-      axes.forEach(a => {
-        const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        axis.setAttribute("x1", a.x1);
-        axis.setAttribute("x2", a.x2);
-        axis.setAttribute("y1", a.y1);
-        axis.setAttribute("y2", a.y2);
-        axis.setAttribute("stroke", "#999");
-        axis.setAttribute("stroke-width", 2);
-        svg.appendChild(axis);
-      });
-
-      // SITE BOUNDARY
-      const siteCoords = parseCoords(document.getElementById('siteCoords').value);
-      for (let i = 0; i < siteCoords.length; i++) {
-        const [x1, y1] = siteCoords[i];
-        const [x2, y2] = siteCoords[(i + 1) % siteCoords.length];
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", centerX + x1 * scale);
-        line.setAttribute("y1", centerY - y1 * scale);
-        line.setAttribute("x2", centerX + x2 * scale);
-        line.setAttribute("y2", centerY - y2 * scale);
-        line.setAttribute("stroke", "black");
-        line.setAttribute("stroke-width", 2);
-        svg.appendChild(line);
-      }
-
-      // TREES
-      const trees = parseCoords(document.getElementById('treeData').value);
-      trees.forEach(([x, y, _z, r]) => {
-        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", centerX + x * scale);
-        circle.setAttribute("cy", centerY - y * scale);
-        circle.setAttribute("r", r * scale);
-        circle.setAttribute("fill", "green");
-        circle.setAttribute("fill-opacity", 0.25);
-        circle.setAttribute("stroke", "green");
-        svg.appendChild(circle);
-      });
-
-      // CONTEXT BUILDINGS
-      const contexts = parseCoords(document.getElementById('contextData').value);
-      contexts.forEach(([x, y, _z, w, h]) => {
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", centerX + x * scale);
-        rect.setAttribute("y", centerY - y * scale - h * scale);
-        rect.setAttribute("width", w * scale);
-        rect.setAttribute("height", h * scale);
-        rect.setAttribute("fill", "lightgrey");
-        rect.setAttribute("fill-opacity", 0.3);
-        rect.setAttribute("stroke", "lightgrey");
-        svg.appendChild(rect);
-      });
-
-      // ROAD
-      const roadEdge = parseCoords(document.getElementById('roadEdge').value);
-      const roadWidth = parseFloat(document.getElementById('roadWidth').value);
-      if (roadEdge.length === 2 && !isNaN(roadWidth)) {
-        const [[x1, y1], [x2, y2]] = roadEdge;
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const pad = 10;
-        const ux = dx / length;
-        const uy = dy / length;
-        const ox = -uy;
-        const oy = ux;
-
-        const points = [
-          [x1 - pad * ux + roadWidth * ox / 2, y1 - pad * uy + roadWidth * oy / 2],
-          [x2 + pad * ux + roadWidth * ox / 2, y2 + pad * uy + roadWidth * oy / 2],
-          [x2 + pad * ux - roadWidth * ox / 2, y2 + pad * uy - roadWidth * oy / 2],
-          [x1 - pad * ux - roadWidth * ox / 2, y1 - pad * uy - roadWidth * oy / 2]
-        ];
-
-        const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        road.setAttribute("points", points.map(([x, y]) => `${centerX + x * scale},${centerY - y * scale}`).join(' '));
-        road.setAttribute("fill", "darkgrey");
-        road.setAttribute("fill-opacity", 0.3);
-        road.setAttribute("stroke", "darkgrey");
-        svg.appendChild(road);
-      }
+      const outputHTML = `
+        <h3>Area Statement</h3>
+        <ul>
+          <li><strong>Site Area:</strong> ${siteArea.toFixed(2)} sq.m</li>
+          <li><strong>Buildable Area (after setbacks):</strong> ${buildableArea.toFixed(2)} sq.m</li>
+          <li><strong>Assumed FSI:</strong> ${FSI}</li>
+          <li><strong>Permissible Built-up Area:</strong> ${builtUpArea.toFixed(2)} sq.m</li>
+          <li><strong>Setbacks Applied:</strong> Front = ${setbackFront} m, Rear = ${setbackRear} m, Side = ${setbackSide} m (both sides)</li>
+        </ul>
+      `;
+      document.getElementById("areaStatementOutput").innerHTML = outputHTML;
     }
 
-    function goToStep2() {
-      document.getElementById('step1').style.display = 'none';
-      document.getElementById('step2').style.display = 'block';
-    }
     function goToStep3() {
-      document.getElementById('step2').style.display = 'none';
-      document.getElementById('step3').style.display = 'block';
+      document.getElementById("step2").style.display = "none";
+      document.getElementById("step3").style.display = "block";
     }
+
     function goToStep4() {
-      document.getElementById('step3').style.display = 'none';
-      document.getElementById('step4').style.display = 'block';
+      document.getElementById("step3").style.display = "none";
+      document.getElementById("step4").style.display = "block";
     }
+
     function goToStep5() {
-      document.getElementById('step4').style.display = 'none';
-      document.getElementById('step5').style.display = 'block';
+      document.getElementById("step4").style.display = "none";
+      document.getElementById("step5").style.display = "block";
     }
   </script>
 </body>
