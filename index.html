@@ -55,14 +55,136 @@
   <!-- STEP 2 Placeholder -->
   <div class="section" id="step2" style="display:none;">
     <h2>Step 2: Ground Zoning</h2>
-    <p>[UI and logic for Step 2 will go here]</p>
+    <!-- STEP 2: Ground Zoning Logic and Footprint Visualization -->
+<div id="step-2-container" style="padding: 20px;">
+  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
+
+  <!-- Input section -->
+  <div style="margin-bottom: 15px;">
+    <label for="siteWidth">Site Width (m):</label>
+    <input type="number" id="siteWidth" value="30">
+
+    <label for="siteDepth" style="margin-left: 10px;">Site Depth (m):</label>
+    <input type="number" id="siteDepth" value="40">
+
+    <label for="setbackFront" style="margin-left: 10px;">Front Setback (m):</label>
+    <input type="number" id="setbackFront" value="3">
+
+    <label for="setbackRear" style="margin-left: 10px;">Rear Setback (m):</label>
+    <input type="number" id="setbackRear" value="3">
+    
+    <label for="setbackSide" style="margin-left: 10px;">Side Setback (m):</label>
+    <input type="number" id="setbackSide" value="1.5">
+
+    <button onclick="generateZoning()">Generate Zoning</button>
+  </div>
+
+  <!-- SVG diagram area -->
+  <svg id="zoningDiagram" width="600" height="600" style="border: 1px solid #aaa;"></svg>
+</div>
+
+<script>
+function generateZoning() {
+  const svg = document.getElementById("zoningDiagram");
+  while (svg.firstChild) svg.removeChild(svg.firstChild); // Clear previous diagram
+
+  const siteWidth = parseFloat(document.getElementById("siteWidth").value);
+  const siteDepth = parseFloat(document.getElementById("siteDepth").value);
+  const setbackFront = parseFloat(document.getElementById("setbackFront").value);
+  const setbackRear = parseFloat(document.getElementById("setbackRear").value);
+  const setbackSide = parseFloat(document.getElementById("setbackSide").value);
+
+  const scale = 10; // 1m = 10px
+  const siteX = 50;
+  const siteY = 50;
+
+  // Site boundary
+  const siteRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  siteRect.setAttribute("x", siteX);
+  siteRect.setAttribute("y", siteY);
+  siteRect.setAttribute("width", siteWidth * scale);
+  siteRect.setAttribute("height", siteDepth * scale);
+  siteRect.setAttribute("fill", "#f0f0f0");
+  siteRect.setAttribute("stroke", "#000");
+  siteRect.setAttribute("stroke-width", "2");
+  svg.appendChild(siteRect);
+
+  // Buildable area (after setbacks)
+  const buildableX = siteX + setbackSide * scale;
+  const buildableY = siteY + setbackFront * scale;
+  const buildableWidth = (siteWidth - 2 * setbackSide) * scale;
+  const buildableHeight = (siteDepth - setbackFront - setbackRear) * scale;
+
+  const buildableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  buildableRect.setAttribute("x", buildableX);
+  buildableRect.setAttribute("y", buildableY);
+  buildableRect.setAttribute("width", buildableWidth);
+  buildableRect.setAttribute("height", buildableHeight);
+  buildableRect.setAttribute("fill", "#a3d3ff");
+  buildableRect.setAttribute("stroke", "#0077cc");
+  buildableRect.setAttribute("stroke-width", "2");
+  svg.appendChild(buildableRect);
+
+  // Labels
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", siteX + 5);
+  text.setAttribute("y", siteY - 10);
+  text.textContent = "Site & Buildable Footprint";
+  text.setAttribute("font-size", "14px");
+  text.setAttribute("fill", "#333");
+  svg.appendChild(text);
+}
+</script>
+
     <button onclick="goToStep3()">Proceed to Step 3</button>
   </div>
 
   <!-- STEP 3 Placeholder -->
   <div class="section" id="step3" style="display:none;">
     <h2>Step 3: Area Statement</h2>
-    <p>[UI and logic for Step 3 will go here]</p>
+    <!-- STEP 3: Area Statement Generation -->
+<div id="step-3-container" style="padding: 20px;">
+  <h2>Step 3: Area Statement Generator</h2>
+
+  <button onclick="generateAreaStatement()">Generate Area Statement</button>
+
+  <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
+    <strong>Area Statement will appear here.</strong>
+  </div>
+</div>
+
+<script>
+function generateAreaStatement() {
+  const siteWidth = parseFloat(document.getElementById("siteWidth").value);
+  const siteDepth = parseFloat(document.getElementById("siteDepth").value);
+  const setbackFront = parseFloat(document.getElementById("setbackFront").value);
+  const setbackRear = parseFloat(document.getElementById("setbackRear").value);
+  const setbackSide = parseFloat(document.getElementById("setbackSide").value);
+
+  const siteArea = siteWidth * siteDepth; // in sq.m
+  const buildableWidth = siteWidth - (2 * setbackSide);
+  const buildableDepth = siteDepth - (setbackFront + setbackRear);
+  const buildableArea = buildableWidth * buildableDepth;
+
+  // Assume default FSI = 1.5 (modifiable later)
+  const FSI = 1.5;
+  const builtUpArea = siteArea * FSI;
+
+  const outputHTML = `
+    <h3>Area Statement</h3>
+    <ul>
+      <li><strong>Site Area:</strong> ${siteArea.toFixed(2)} sq.m</li>
+      <li><strong>Buildable Area (after setbacks):</strong> ${buildableArea.toFixed(2)} sq.m</li>
+      <li><strong>Assumed FSI:</strong> ${FSI}</li>
+      <li><strong>Permissible Built-up Area:</strong> ${builtUpArea.toFixed(2)} sq.m</li>
+      <li><strong>Setbacks Applied:</strong> Front = ${setbackFront} m, Rear = ${setbackRear} m, Side = ${setbackSide} m (both sides)</li>
+    </ul>
+  `;
+
+  document.getElementById("areaStatementOutput").innerHTML = outputHTML;
+}
+</script>
+
     <button onclick="goToStep4()">Proceed to Step 4</button>
   </div>
 
