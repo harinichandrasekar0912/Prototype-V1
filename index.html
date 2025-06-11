@@ -200,18 +200,32 @@
 
 <!-- STEP 2: GROUND ZONING -->
 <div class="section" id="step2" style="display:none;">
-  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
-  <p><strong>Assumed Setbacks:</strong> Front = 3m, Side & Rear = 1.5m</p>
+  <h2>Step 2: Ground Zoning & Environmental Factors</h2>
 
-  <label>Preserved Trees – (x,y,0,radius,height); separate multiple with semicolon</label>
+  <p style="color: gray;">
+    Setbacks applied: <strong>Front = 3m</strong>, <strong>Rear + Side = 1.5m</strong>
+  </p>
+
+  <label>Trees to Preserve (x,y,0,radius,height); separate with semicolons:</label>
   <textarea id="preserveTreeData"></textarea>
 
-  <button onclick="generateZoning()">Generate Zoning</button>
+  <label>Predominant Wind Direction – Enter (startX,startY,0);(endX,endY,0):</label>
+  <textarea id="windDirection"></textarea>
 
-  <svg id="zoningDiagram" style="border: 1px solid #aaa; margin-top: 20px;"></svg>
+  <label>Noise Sources ((x,y,z,radius);...)</label>
+  <textarea id="noiseSources"></textarea>
+
+  <label>Views ((x1,y1,z1);(x2,y2,z2));((x3,y3,z3);(x4,y4,z4))...</label>
+  <textarea id="viewDirections"></textarea>
+
+  <label>Privacy Concern Sources ((x,y,z,radius);...)</label>
+  <textarea id="privacySources"></textarea>
+
+  <button onclick="generateZoning()">Generate Zoning</button>
+  <svg id="zoningDiagram" style="border: 1px solid #aaa;"></svg>
+
   <button onclick="goToStep3()">Proceed to Step 3</button>
 </div>
-
 
     <!-- STEP 3: AREA STATEMENT -->
   <div class="section" id="step3" style="display:none;">
@@ -243,26 +257,28 @@
 
 let sitePolygonGlobal = [];
 function generateZoning() {
-  const scale = 10;
-  const margin = 50;
   const svg = document.getElementById("zoningDiagram");
   svg.innerHTML = "";
 
-  const coordsRaw = document.getElementById("siteCoords").value.trim();
-  const sitePoints = coordsRaw.split(";").map(pt => {
+  const scale = 10;
+  const margin = 50;
+
+  // Get site boundary from Step 1
+  const siteRaw = document.getElementById("siteCoords").value.trim();
+  const sitePoints = siteRaw.split(";").map(pt => {
     const [x, y] = pt.replace(/[()]/g, "").split(",").map(Number);
     return { x, y };
   });
 
   const allX = sitePoints.map(p => p.x);
   const allY = sitePoints.map(p => p.y);
-  const minX = Math.min(...allX);
-  const maxX = Math.max(...allX);
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const minY = Math.min(...allY), maxY = Math.max(...allY);
+  const siteWidth = maxX - minX;
+  const siteDepth = maxY - minY;
 
-  const width = (maxX - minX) * scale + 2 * margin;
-  const height = (maxY - minY) * scale + 2 * margin;
+  const width = siteWidth * scale + 2 * margin;
+  const height = siteDepth * scale + 2 * margin;
   const offsetX = margin - minX * scale;
   const offsetY = margin + maxY * scale;
 
@@ -271,162 +287,243 @@ function generateZoning() {
   svg.setAttribute("width", "100%");
   svg.setAttribute("height", "auto");
 
-  // Grid
-  for (let x = 0; x < width; x += scale) {
+  // --- Grid background ---
+  for (let x = 0; x <= width; x += scale) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x);
-    line.setAttribute("y1", 0);
-    line.setAttribute("x2", x);
-    line.setAttribute("y2", height);
-    line.setAttribute("stroke", "#eee");
-    line.setAttribute("stroke-width", 0.5);
+    line.setAttribute("x1", x); line.setAttribute("x2", x);
+    line.setAttribute("y1", 0); line.setAttribute("y2", height);
+    line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", "0.5");
     svg.appendChild(line);
   }
-  for (let y = 0; y < height; y += scale) {
+  for (let y = 0; y <= height; y += scale) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", 0);
-    line.setAttribute("y1", y);
-    line.setAttribute("x2", width);
-    line.setAttribute("y2", y);
-    line.setAttribute("stroke", "#eee");
-    line.setAttribute("stroke-width", 0.5);
+    line.setAttribute("x1", 0); line.setAttribute("x2", width);
+    line.setAttribute("y1", y); line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", "0.5");
     svg.appendChild(line);
   }
 
-  // Site Boundary
-  const sitePoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  const siteStr = sitePoints.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" ");
-  sitePoly.setAttribute("points", siteStr);
-  sitePoly.setAttribute("fill", "transparent");
-  sitePoly.setAttribute("stroke", "black");
-  sitePoly.setAttribute("stroke-width", "2");
-  svg.appendChild(sitePoly);
+  // --- Site boundary ---
+  const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  const pointStr = sitePoints.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" ");
+  polygon.setAttribute("points", pointStr);
+  polygon.setAttribute("fill", "transparent");
+  polygon.setAttribute("stroke", "black");
+  polygon.setAttribute("stroke-width", 2);
+  svg.appendChild(polygon);
 
-  // Road
-  const roadEdge = document.getElementById("roadEdge").value.trim();
-  const roadWidth = parseFloat(document.getElementById("roadWidth").value.trim());
-  let frontEdge = [];
-  if (roadEdge && !isNaN(roadWidth)) {
-    const [p1, p2] = roadEdge.split(";").map(p => {
-      const [x, y] = p.replace(/[()]/g, "").split(",").map(Number);
-      return { x, y };
-    });
-    frontEdge = [p1, p2];
-    const road = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    road.setAttribute("x1", p1.x * scale + offsetX);
-    road.setAttribute("y1", offsetY - p1.y * scale);
-    road.setAttribute("x2", p2.x * scale + offsetX);
-    road.setAttribute("y2", offsetY - p2.y * scale);
-    road.setAttribute("stroke", "#666");
-    road.setAttribute("stroke-width", roadWidth * scale);
-    road.setAttribute("opacity", 0.4);
-    svg.appendChild(road);
+  // --- Frontage & setbacks ---
+  const roadRaw = document.getElementById("roadEdge").value.trim();
+  const [front1, front2] = roadRaw.split(";").map(p => {
+    const [x, y] = p.replace(/[()]/g, "").split(",").map(Number);
+    return { x, y };
+  });
+
+  const frontVec = { x: front2.x - front1.x, y: front2.y - front1.y };
+  const norm = Math.sqrt(frontVec.x ** 2 + frontVec.y ** 2);
+  const offsetFront = { x: -frontVec.y / norm, y: frontVec.x / norm };
+
+  const setbacks = [
+    { offset: 3, dx: offsetFront.x, dy: offsetFront.y },   // Front
+    { offset: 1.5, dx: -offsetFront.x, dy: -offsetFront.y }, // Rear
+  ];
+
+  const siteSides = sitePoints.map((pt, i) => [pt, sitePoints[(i + 1) % sitePoints.length]]);
+  siteSides.forEach(([a, b]) => {
+    const isFront = (a.x === front1.x && a.y === front1.y && b.x === front2.x && b.y === front2.y)
+                 || (b.x === front1.x && b.y === front1.y && a.x === front2.x && a.y === front2.y);
+
+    const setback = isFront ? 3 : 1.5;
+    const nx = b.y - a.y, ny = a.x - b.x;
+    const length = Math.sqrt(nx ** 2 + ny ** 2);
+    const ux = nx / length, uy = ny / length;
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", (a.x + setback * ux) * scale + offsetX);
+    line.setAttribute("y1", offsetY - (a.y + setback * uy) * scale);
+    line.setAttribute("x2", (b.x + setback * ux) * scale + offsetX);
+    line.setAttribute("y2", offsetY - (b.y + setback * uy) * scale);
+    line.setAttribute("stroke", "red");
+    line.setAttribute("stroke-width", "1");
+    line.setAttribute("stroke-dasharray", "4 2");
+    svg.appendChild(line);
+  });
+
+  // Entry/Exit Arrows
+  const arrowMidX = (front1.x + front2.x) / 2;
+  const arrowMidY = (front1.y + front2.y) / 2;
+  const arrowLength = 2;
+  const arrowSpacing = 2;
+  const directionX = front2.x - front1.x;
+  const entryOffset = -arrowSpacing / 2;
+  const exitOffset = arrowSpacing / 2;
+  const ux = directionX !== 0 ? 1 : 0;
+  const uy = directionX === 0 ? 1 : 0;
+
+  function drawArrow(centerX, centerY, dirX, dirY) {
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    const tipX = centerX + dirX * arrowLength;
+    const tipY = centerY + dirY * arrowLength;
+    arrow.setAttribute("x1", centerX * scale + offsetX);
+    arrow.setAttribute("y1", offsetY - centerY * scale);
+    arrow.setAttribute("x2", tipX * scale + offsetX);
+    arrow.setAttribute("y2", offsetY - tipY * scale);
+    arrow.setAttribute("stroke", "red");
+    arrow.setAttribute("stroke-width", 2);
+    arrow.setAttribute("marker-end", "url(#arrow)");
+    svg.appendChild(arrow);
   }
 
-  // Context Buildings
-  const buildingRaw = document.getElementById("contextData").value.trim();
-  const buildings = buildingRaw.match(/\(\((.*?)\)\)/g);
-  if (buildings) {
-    buildings.forEach(group => {
-      const vertexStr = group.replace(/\(|\)/g, "");
-      const vertices = vertexStr.split(";").map(pt => {
-        const [x, y] = pt.trim().split(",").map(Number);
-        return { x, y };
-      });
-      if (vertices.length >= 2) {
-        const minXb = Math.min(...vertices.map(v => v.x));
-        const minYb = Math.min(...vertices.map(v => v.y));
-        const maxXb = Math.max(...vertices.map(v => v.x));
-        const maxYb = Math.max(...vertices.map(v => v.y));
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", minXb * scale + offsetX);
-        rect.setAttribute("y", offsetY - maxYb * scale);
-        rect.setAttribute("width", (maxXb - minXb) * scale);
-        rect.setAttribute("height", (maxYb - minYb) * scale);
-        rect.setAttribute("fill", "#bbb");
-        rect.setAttribute("stroke", "#333");
-        rect.setAttribute("stroke-width", 1);
-        rect.setAttribute("opacity", 0.6);
-        svg.appendChild(rect);
-      }
-    });
-  }
+  // Define marker arrowhead
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L6,3 L0,6 Z" fill="red" />
+    </marker>`;
+  svg.appendChild(defs);
 
-  // Preserved Trees
-  const trees = document.getElementById("preserveTreeData").value.trim();
-  if (trees) {
-    trees.split(";").forEach(t => {
-      const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
+  drawArrow(arrowMidX + entryOffset, arrowMidY, offsetFront.x, offsetFront.y); // Entry
+  drawArrow(arrowMidX + exitOffset, arrowMidY, -offsetFront.x, -offsetFront.y); // Exit
+
+   // --- TREES TO PRESERVE ---
+  const preservedTreeData = document.getElementById("preserveTreeData").value.trim();
+  if (preservedTreeData) {
+    preservedTreeData.split(";").forEach(tree => {
+      const [x, y, , r] = tree.replace(/[()]/g, "").split(",").map(Number);
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute("cx", x * scale + offsetX);
       circle.setAttribute("cy", offsetY - y * scale);
       circle.setAttribute("r", r * scale);
       circle.setAttribute("fill", "green");
-      circle.setAttribute("fill-opacity", "0.25");
+      circle.setAttribute("fill-opacity", 0.25);
+      circle.setAttribute("stroke", "green");
       svg.appendChild(circle);
     });
   }
 
-  // Setbacks
-  function drawDashedLine(x1, y1, x2, y2) {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x1);
-    line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2);
-    line.setAttribute("y2", y2);
-    line.setAttribute("stroke", "red");
-    line.setAttribute("stroke-width", "1");
-    line.setAttribute("stroke-dasharray", "4,2");
-    svg.appendChild(line);
+  // --- WIND DIRECTION (dotted blue arrow) ---
+  const windRaw = document.getElementById("windDirection").value.trim();
+  if (windRaw) {
+    const [start, end] = windRaw.split(";").map(p => {
+      const [x, y] = p.replace(/[()]/g, "").split(",").map(Number);
+      return { x, y };
+    });
+
+    const wind = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    wind.setAttribute("x1", start.x * scale + offsetX);
+    wind.setAttribute("y1", offsetY - start.y * scale);
+    wind.setAttribute("x2", end.x * scale + offsetX);
+    wind.setAttribute("y2", offsetY - end.y * scale);
+    wind.setAttribute("stroke", "blue");
+    wind.setAttribute("stroke-width", 2);
+    wind.setAttribute("stroke-dasharray", "4 3");
+    wind.setAttribute("marker-end", "url(#windArrow)");
+    svg.appendChild(wind);
+
+    const windArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    windArrow.setAttribute("id", "windArrow");
+    windArrow.setAttribute("markerWidth", "6");
+    windArrow.setAttribute("markerHeight", "6");
+    windArrow.setAttribute("refX", "5");
+    windArrow.setAttribute("refY", "3");
+    windArrow.setAttribute("orient", "auto");
+    windArrow.setAttribute("markerUnits", "strokeWidth");
+
+    const windPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    windPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
+    windPath.setAttribute("fill", "blue");
+    windArrow.appendChild(windPath);
+    svg.querySelector("defs").appendChild(windArrow);
   }
 
-  const frontSetback = 3, sideSetback = 1.5, rearSetback = 1.5;
-  if (frontEdge.length === 2) {
-    const [p1, p2] = frontEdge;
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    const nx = dx / len;
-    const ny = dy / len;
-    const start = { x: p1.x + ny * frontSetback, y: p1.y - nx * frontSetback };
-    const end = { x: p2.x + ny * frontSetback, y: p2.y - nx * frontSetback };
-
-    drawDashedLine(
-      start.x * scale + offsetX, offsetY - start.y * scale,
-      end.x * scale + offsetX, offsetY - end.y * scale
-    );
-
-    // Red arrows
-    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-    defs.innerHTML = `<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5"
-      orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 10 3.5, 0 7" fill="red" /></marker>`;
-    svg.appendChild(defs);
-
-    const drawArrow = (x, y, dx, dy) => {
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", x * scale + offsetX);
-      line.setAttribute("y1", offsetY - y * scale);
-      line.setAttribute("x2", (x + dx) * scale + offsetX);
-      line.setAttribute("y2", offsetY - (y + dy) * scale);
-      line.setAttribute("stroke", "red");
-      line.setAttribute("stroke-width", "2");
-      line.setAttribute("marker-end", "url(#arrowhead)");
-      svg.appendChild(line);
-    };
-
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2;
-    drawArrow(midX - 2 * nx, midY - 2 * ny, nx, ny); // Entry
-    drawArrow(midX + 2 * nx, midY + 2 * ny, nx, ny); // Exit
+  // --- NOISE SOURCES (orange concentric circles) ---
+  const noiseRaw = document.getElementById("noiseSources").value.trim();
+  if (noiseRaw) {
+    const sources = noiseRaw.match(/\((.*?)\)/g);
+    sources.forEach(src => {
+      const [x, y, , rMax] = src.replace(/[()]/g, "").split(",").map(Number);
+      for (let r = 1; r <= rMax; r++) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x * scale + offsetX);
+        circle.setAttribute("cy", offsetY - y * scale);
+        circle.setAttribute("r", r * scale);
+        circle.setAttribute("fill", "none");
+        circle.setAttribute("stroke", "orange");
+        circle.setAttribute("stroke-width", "0.6");
+        svg.appendChild(circle);
+      }
+      const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      center.setAttribute("cx", x * scale + offsetX);
+      center.setAttribute("cy", offsetY - y * scale);
+      center.setAttribute("r", 2);
+      center.setAttribute("fill", "orange");
+      svg.appendChild(center);
+    });
   }
 
-  // Side & Rear setbacks
-  drawDashedLine((minX + sideSetback) * scale + offsetX, 0, (minX + sideSetback) * scale + offsetX, height);
-  drawDashedLine((maxX - sideSetback) * scale + offsetX, 0, (maxX - sideSetback) * scale + offsetX, height);
-  drawDashedLine(0, offsetY - (minY + rearSetback) * scale, width, offsetY - (minY + rearSetback) * scale);
+  // --- PRIVACY SOURCES (purple concentric circles) ---
+  const privacyRaw = document.getElementById("privacySources").value.trim();
+  if (privacyRaw) {
+    const sources = privacyRaw.match(/\((.*?)\)/g);
+    sources.forEach(src => {
+      const [x, y, , rMax] = src.replace(/[()]/g, "").split(",").map(Number);
+      for (let r = 1; r <= rMax; r++) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x * scale + offsetX);
+        circle.setAttribute("cy", offsetY - y * scale);
+        circle.setAttribute("r", r * scale);
+        circle.setAttribute("fill", "none");
+        circle.setAttribute("stroke", "purple");
+        circle.setAttribute("stroke-width", "0.6");
+        svg.appendChild(circle);
+      }
+      const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      center.setAttribute("cx", x * scale + offsetX);
+      center.setAttribute("cy", offsetY - y * scale);
+      center.setAttribute("r", 2);
+      center.setAttribute("fill", "purple");
+      svg.appendChild(center);
+    });
+  }
+
+  // --- VIEW DIRECTIONS (dotted pink arrows) ---
+  const viewsRaw = document.getElementById("viewDirections").value.trim();
+  if (viewsRaw) {
+    const arrows = viewsRaw.match(/\((.*?)\);?\((.*?)\)/g);
+    for (let i = 0; i < arrows.length; i += 2) {
+      const [x1, y1] = arrows[i].replace(/[()]/g, "").split(",").map(Number);
+      const [x2, y2] = arrows[i + 1].replace(/[()]/g, "").split(",").map(Number);
+
+      const arrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      arrow.setAttribute("x1", x1 * scale + offsetX);
+      arrow.setAttribute("y1", offsetY - y1 * scale);
+      arrow.setAttribute("x2", x2 * scale + offsetX);
+      arrow.setAttribute("y2", offsetY - y2 * scale);
+      arrow.setAttribute("stroke", "pink");
+      arrow.setAttribute("stroke-dasharray", "3 2");
+      arrow.setAttribute("stroke-width", "2");
+      arrow.setAttribute("marker-end", "url(#viewArrow)");
+      svg.appendChild(arrow);
+    }
+
+    const viewArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    viewArrow.setAttribute("id", "viewArrow");
+    viewArrow.setAttribute("markerWidth", "6");
+    viewArrow.setAttribute("markerHeight", "6");
+    viewArrow.setAttribute("refX", "5");
+    viewArrow.setAttribute("refY", "3");
+    viewArrow.setAttribute("orient", "auto");
+    viewArrow.setAttribute("markerUnits", "strokeWidth");
+
+    const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
+    arrowPath.setAttribute("fill", "pink");
+    viewArrow.appendChild(arrowPath);
+    svg.querySelector("defs").appendChild(viewArrow);
+  }
 }
-    function generateAreaStatement() {
+
+function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
       const siteDepth = parseFloat(document.getElementById("siteDepth").value);
       const setbackFront = parseFloat(document.getElementById("setbackFront").value);
