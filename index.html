@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype V1</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    textarea, input, select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      font-family: monospace;
+    }
+    button {
+      padding: 10px 15px;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+    .step {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin-bottom: 40px;
+    }
+    #svg-container {
+      border: 1px solid #000;
+      width: 100%;
+      height: 600px;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Prototype V1 - Interactive Architectural Assistant</h1>
+
+  <!-- SVG Output Area -->
+  <div id="svg-container">
+    <svg id="site-svg" viewBox="-100 -100 400 400"></svg>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <h2>Step 1: Site Boundary</h2>
+    <textarea id="site-input" placeholder="Enter site vertices (x,y,0)"></textarea>
+    <button onclick="drawSiteBoundary()">Draw Site Boundary</button>
+  </div>
+
+  <div class="step">
+    <h2>Step 1B: Vegetation</h2>
+    <textarea id="tree-input" placeholder="Enter trees: x,y,radius,height per line"></textarea>
+    <button onclick="drawVegetation()">Draw Trees</button>
+  </div>
+
+  <div class="step">
+    <h2>Step 1C: Context (Roads & Buildings)</h2>
+    <textarea id="road-input" placeholder="Enter road boundaries as (x,y,0)"></textarea>
+    <textarea id="building-input" placeholder="Enter building rectangles: x,y,width,height"></textarea>
+    <button onclick="drawContext()">Draw Context</button>
+  </div>
+
+  <div class="step">
+    <h2>Step 1D: Setbacks</h2>
+    <button onclick="drawSetbacks()">Draw Setbacks</button>
+  </div>
+
+  <div class="step">
+    <h2>Step 1E: Climate Features</h2>
+    <textarea id="wind-input" placeholder="Wind: x1,y1 -> x2,y2"></textarea>
+    <textarea id="sun-input" placeholder="Sun Path (dummy)"></textarea>
+    <textarea id="noise-input" placeholder="Noise sources: x,y,radius"></textarea>
+    <textarea id="view-input" placeholder="Views: x1,y1 -> x2,y2"></textarea>
+    <button onclick="drawClimate()">Draw Climate Data</button>
+  </div>
+
+  <script>
+    const svg = document.getElementById("site-svg");
+
+    function drawSiteBoundary() {
+      const coords = document.getElementById("site-input").value.trim().split("\n").map(line => {
+        const [x, y] = line.replace(/[()]/g, '').split(",").map(Number);
+        return `${x},${-y}`;
+      });
+      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      polygon.setAttribute("points", coords.join(" "));
+      polygon.setAttribute("stroke", "black");
+      polygon.setAttribute("fill", "none");
+      polygon.setAttribute("stroke-width", "2");
+      svg.appendChild(polygon);
+    }
+
+    function drawVegetation() {
+      const trees = document.getElementById("tree-input").value.trim().split("\n");
+      trees.forEach(line => {
+        const [x, y, r] = line.split(",").map(Number);
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", -y);
+        circle.setAttribute("r", r);
+        circle.setAttribute("fill", "green");
+        circle.setAttribute("fill-opacity", "0.25");
+        svg.appendChild(circle);
+      });
+    }
+
+    function drawContext() {
+      const roads = document.getElementById("road-input").value.trim().split("\n");
+      roads.forEach(line => {
+        const points = line.replace(/[()]/g, '').split(",").map(Number);
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const polyPts = [];
+        for (let i = 0; i < points.length; i += 2) {
+          polyPts.push(`${points[i]},${-points[i+1]}`);
+        }
+        rect.setAttribute("points", polyPts.join(" "));
+        rect.setAttribute("fill", "darkgray");
+        rect.setAttribute("fill-opacity", "0.3");
+        rect.setAttribute("stroke", "gray");
+        svg.appendChild(rect);
+      });
+
+      const buildings = document.getElementById("building-input").value.trim().split("\n");
+      buildings.forEach(line => {
+        const [x, y, w, h] = line.split(",").map(Number);
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", -y - h);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", h);
+        rect.setAttribute("fill", "lightgray");
+        rect.setAttribute("fill-opacity", "0.3");
+        svg.appendChild(rect);
+      });
+    }
+
+    function drawSetbacks() {
+      // Simple offset for now: rectangle inside the site
+      const setback = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      setback.setAttribute("x", 3);
+      setback.setAttribute("y", -13);
+      setback.setAttribute("width", 14);
+      setback.setAttribute("height", 10);
+      setback.setAttribute("stroke", "red");
+      setback.setAttribute("stroke-dasharray", "4");
+      setback.setAttribute("fill", "none");
+      svg.appendChild(setback);
+    }
+
+    function drawClimate() {
+      const [x1, y1, x2, y2] = document.getElementById("wind-input").value.replace(/[()]/g, '').split(",").map(Number);
+      const wind = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      wind.setAttribute("x1", x1);
+      wind.setAttribute("y1", -y1);
+      wind.setAttribute("x2", x2);
+      wind.setAttribute("y2", -y2);
+      wind.setAttribute("stroke", "blue");
+      wind.setAttribute("marker-end", "url(#arrow)");
+      svg.appendChild(wind);
+
+      const views = document.getElementById("view-input").value.trim().split("\n");
+      views.forEach(line => {
+        const [vx1, vy1, vx2, vy2] = line.split(",").map(Number);
+        const vline = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        vline.setAttribute("x1", vx1);
+        vline.setAttribute("y1", -vy1);
+        vline.setAttribute("x2", vx2);
+        vline.setAttribute("y2", -vy2);
+        vline.setAttribute("stroke", "pink");
+        vline.setAttribute("stroke-dasharray", "4");
+        svg.appendChild(vline);
+      });
+
+      const noises = document.getElementById("noise-input").value.trim().split("\n");
+      noises.forEach(line => {
+        const [cx, cy, r] = line.split(",").map(Number);
+        for (let i = 1; i <= r; i++) {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", cx);
+          circle.setAttribute("cy", -cy);
+          circle.setAttribute("r", i);
+          circle.setAttribute("stroke", "orange");
+          circle.setAttribute("fill", "none");
+          svg.appendChild(circle);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
