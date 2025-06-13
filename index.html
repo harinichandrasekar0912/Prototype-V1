@@ -274,6 +274,14 @@
   </div>
 
   <script>
+function renderStep2() {
+  try {
+    generateZoning();
+  } catch (err) {
+    console.error("Error in generateZoning():", err);
+    alert("An error occurred while rendering Step 2. Check the console for details.");
+  }
+}
 
 function parseCoordPair(str) {
   return str.replace(/[()]/g, '').split(',').map(Number);
@@ -429,7 +437,10 @@ function generateZoning() {
   const entry = document.createElementNS("http://www.w3.org/2000/svg", "line");
   const exit = document.createElementNS("http://www.w3.org/2000/svg", "line");
 
-  const [rx1, ry1], [rx2, ry2] = roadCoords;
+  const [p1, p2] = roadCoords;
+const [rx1, ry1] = p1;
+const [rx2, ry2] = p2;
+
   const midX = (rx1 + rx2) / 2;
   const midY = (ry1 + ry2) / 2;
   const dx = rx2 - rx1, dy = ry2 - ry1;
