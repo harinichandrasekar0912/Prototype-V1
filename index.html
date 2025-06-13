@@ -384,7 +384,7 @@ function generateZoning() {
   }
 
   // ------------------ Trees to preserve ------------------
-  const trees = document.getElementById("preserveTrees").value.trim().split(";").filter(Boolean);
+  const trees = document.getElementById("preservedTrees").value.trim().split(";").filter(Boolean);
   trees.forEach(t => {
     const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
     let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
