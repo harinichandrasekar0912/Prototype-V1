@@ -220,7 +220,7 @@
   <textarea id="privacySources"></textarea>
 
   <button onclick="renderStep2()">Render Step 2</button>
-  <button onclick="goToStep3()">Proceed to Step 3</button>
+  <button onclick="goToStep2B()">Proceed to Circulation & Zoning (Step 2B)</button>
 
   <svg id="zoningCanvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc; background-color:#f9f9f9;">
     <defs>
@@ -235,6 +235,39 @@
       </marker>
     </defs>
   </svg>
+</div>
+
+<!-- STEP 2B: CIRCULATION & ZONING OPTIONS -->
+<div class="section" id="step2b" style="display:none;">
+  <h2>Step 2B: Circulation Preferences & Preliminary Zoning</h2>
+
+  <label>Describe circulation preferences:</label>
+  <textarea id="circulationPrompt" placeholder="E.g., Separate pedestrian/vehicular paths, circulation depth 6m, keep vehicular near front..."></textarea>
+
+  <button onclick="generateZoningOptions()">Generate Zoning Options</button>
+
+  <div id="zoningOptions" style="display:none; margin-top: 20px;">
+    <h3>Select one zoning option:</h3>
+    <div style="display: flex; gap: 10px;">
+      <div>
+        <svg id="zoningOptionA" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">A</p>
+      </div>
+      <div>
+        <svg id="zoningOptionB" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">B</p>
+      </div>
+      <div>
+        <svg id="zoningOptionC" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">C</p>
+      </div>
+    </div>
+
+    <label for="selectedZoning">Choose option (A, B, or C):</label>
+    <input type="text" id="selectedZoning" />
+
+    <button onclick="proceedToStep3()">Proceed to Step 3</button>
+  </div>
 </div>
 
 
@@ -584,6 +617,47 @@ function generateZoning() {
     });
   }
 }
+
+function goToStep2B() {
+  document.getElementById("step2").style.display = "none";
+  document.getElementById("step2b").style.display = "block";
+}
+
+function generateZoningOptions() {
+  const prompt = document.getElementById("circulationPrompt").value.trim();
+  if (!prompt) {
+    alert("Please enter your circulation preferences.");
+    return;
+  }
+
+  document.getElementById("zoningOptions").style.display = "block";
+
+  // Placeholder generation (replace with ML logic later)
+  ["A", "B", "C"].forEach(id => {
+    const svg = document.getElementById(`zoningOption${id}`);
+    svg.innerHTML = "";
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", 50);
+    rect.setAttribute("y", 50);
+    rect.setAttribute("width", 150);
+    rect.setAttribute("height", 100);
+    rect.setAttribute("fill", id === "A" ? "brown" : id === "B" ? "saddlebrown" : "peru");
+    rect.setAttribute("fill-opacity", 0.2);
+    rect.setAttribute("stroke", "brown");
+    rect.setAttribute("stroke-width", 2);
+    svg.appendChild(rect);
+  });
+
+function proceedToStep3() {
+  const choice = document.getElementById("selectedZoning").value.trim().toUpperCase();
+  if (!["A", "B", "C"].includes(choice)) {
+    alert("Please choose a valid option: A, B, or C.");
+    return;
+  }
+  document.getElementById("step2b").style.display = "none";
+  document.getElementById("step3").style.display = "block";
+}
+
 
 function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
