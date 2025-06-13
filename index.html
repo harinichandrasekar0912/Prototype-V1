@@ -202,34 +202,41 @@
 <div class="section" id="step2" style="display:none;">
   <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
 
-  <!-- Instructions -->
   <p><strong>Setback Info:</strong> Front = 3m, Rear & Sides = 1.5m. Frontage side is determined based on road location.</p>
 
-  <!-- Preserved Trees -->
   <label>Preserved Trees – (x,y,0,radius,height); separate with semicolon</label>
   <textarea id="preservedTrees"></textarea>
 
-  <!-- Wind Direction Input -->
   <label>Predominant Wind Direction – Enter two points (start to end): (x1,y1,z1);(x2,y2,z2)</label>
   <textarea id="windDirection"></textarea>
 
-  <!-- Noise Sources -->
-  <label>Noise Sources – ((x,y,z,radius);(...)); multiple sources in this format</label>
+  <label>Noise Sources – ((x,y,z,radius);(...))</label>
   <textarea id="noiseSources"></textarea>
 
-  <!-- Views -->
   <label>View Directions – ((x1,y1,z1);(x2,y2,z2));((x3,y3,z3);(x4,y4,z4)) etc.</label>
   <textarea id="viewDirections"></textarea>
 
-  <!-- Privacy Sources -->
   <label>Privacy Concern Sources – ((x,y,z,radius);(...))</label>
   <textarea id="privacySources"></textarea>
 
   <button onclick="renderStep2()">Render Step 2</button>
   <button onclick="goToStep3()">Proceed to Step 3</button>
 
-  <svg id="zoningCanvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc; background-color:#f9f9f9;"></svg>
+  <svg id="zoningCanvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc; background-color:#f9f9f9;">
+    <defs>
+      <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="red" />
+      </marker>
+      <marker id="windArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="blue" />
+      </marker>
+      <marker id="viewArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="pink" />
+      </marker>
+    </defs>
+  </svg>
 </div>
+
 
 <style>
   .section textarea,
@@ -298,10 +305,18 @@ function parseMultiPairs(str) {
 function generateZoning() {
   const svg = document.getElementById("zoningCanvas");
   svg.innerHTML = "";
+
   const scale = 10;
   const margin = 50;
 
-  // ------------------ Get site boundary ------------------
+  const parseCoordPair = str => str.replace(/[()]/g, "").split(",").map(Number);
+  const parseMultiPairs = str => {
+    return (str.match(/\(\((.*?)\)\)/g) || []).map(group =>
+      group.replace(/[()]/g, "").split(";").map(pair => pair.split(",").map(Number))
+    );
+  };
+
+  // --- Get site boundary
   const siteRaw = document.getElementById("siteCoords").value.trim();
   const sitePts = siteRaw.split(";").map(pt => {
     const [x, y] = pt.replace(/[()]/g, '').split(",").map(Number);
@@ -310,10 +325,8 @@ function generateZoning() {
 
   const allX = sitePts.map(p => p.x);
   const allY = sitePts.map(p => p.y);
-  const minX = Math.min(...allX);
-  const maxX = Math.max(...allX);
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const minY = Math.min(...allY), maxY = Math.max(...allY);
 
   const bboxWidth = (maxX - minX) * scale + 2 * margin;
   const bboxHeight = (maxY - minY) * scale + 2 * margin;
@@ -321,35 +334,42 @@ function generateZoning() {
   const offsetY = margin + maxY * scale;
 
   svg.setAttribute("viewBox", `0 0 ${bboxWidth} ${bboxHeight}`);
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("width", "100%");
   svg.setAttribute("height", "auto");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-  // ------------------ Grid ------------------
+  // --- Grid
   for (let x = 0; x < bboxWidth; x += scale) {
-    let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", x); line.setAttribute("y1", 0);
     line.setAttribute("x2", x); line.setAttribute("y2", bboxHeight);
     line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", 0.5);
     svg.appendChild(line);
   }
   for (let y = 0; y < bboxHeight; y += scale) {
-    let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", 0); line.setAttribute("y1", y);
     line.setAttribute("x2", bboxWidth); line.setAttribute("y2", y);
     line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", 0.5);
     svg.appendChild(line);
   }
 
-  // ------------------ Site Boundary ------------------
-  let poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  poly.setAttribute("points", sitePts.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" "));
-  poly.setAttribute("fill", "none"); poly.setAttribute("stroke", "black");
-  poly.setAttribute("stroke-width", 2);
-  svg.appendChild(poly);
+  // --- Site boundary
+  const sitePolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  sitePolygon.setAttribute("points", sitePts.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" "));
+  sitePolygon.setAttribute("fill", "none");
+  sitePolygon.setAttribute("stroke", "black");
+  sitePolygon.setAttribute("stroke-width", 2);
+  svg.appendChild(sitePolygon);
 
-  // ------------------ Red Setback Lines (internal) ------------------
-  const frontSetback = 3, otherSetback = 1.5;
+    // --- Frontage detection from roadEdge
+  const roadCoords = document.getElementById("roadEdge").value.trim().split(";").map(parseCoordPair);
+  const isFrontEdge = (p1, p2, edge1, edge2) => {
+    const same = (a, b) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01;
+    return (same(p1, edge1) && same(p2, edge2)) || (same(p1, edge2) && same(p2, edge1));
+  };
+
+  // --- Setbacks
   for (let i = 0; i < sitePts.length; i++) {
     const curr = sitePts[i];
     const next = sitePts[(i + 1) % sitePts.length];
@@ -357,37 +377,52 @@ function generateZoning() {
     const length = Math.sqrt(dx * dx + dy * dy);
     const ux = dx / length, uy = dy / length;
 
-    // Assume front = road side
-    const roadCoords = document.getElementById("roadEdge").value.trim().split(";").map(parseCoordPair);
-    const frontMatch = (p1, p2) => (
-      (Math.abs(p1[0] - curr.x) < 1e-2 && Math.abs(p1[1] - curr.y) < 1e-2 &&
-       Math.abs(p2[0] - next.x) < 1e-2 && Math.abs(p2[1] - next.y) < 1e-2) ||
-      (Math.abs(p2[0] - curr.x) < 1e-2 && Math.abs(p2[1] - curr.y) < 1e-2 &&
-       Math.abs(p1[0] - next.x) < 1e-2 && Math.abs(p1[1] - next.y) < 1e-2)
-    );
-    const setback = roadCoords.length === 2 && frontMatch(roadCoords[0], roadCoords[1]) ? frontSetback : otherSetback;
+    const isFront = isFrontEdge([curr.x, curr.y], [next.x, next.y], roadCoords[0], roadCoords[1]);
+    const setback = isFront ? 3 : 1.5;
 
-    const insetX1 = curr.x - uy * setback;
-    const insetY1 = curr.y + ux * setback;
-    const insetX2 = next.x - uy * setback;
-    const insetY2 = next.y + ux * setback;
+    const offsetX1 = curr.x - uy * setback;
+    const offsetY1 = curr.y + ux * setback;
+    const offsetX2 = next.x - uy * setback;
+    const offsetY2 = next.y + ux * setback;
 
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", insetX1 * scale + offsetX);
-    line.setAttribute("y1", offsetY - insetY1 * scale);
-    line.setAttribute("x2", insetX2 * scale + offsetX);
-    line.setAttribute("y2", offsetY - insetY2 * scale);
+    line.setAttribute("x1", offsetX1 * scale + offsetX);
+    line.setAttribute("y1", offsetY - offsetY1 * scale);
+    line.setAttribute("x2", offsetX2 * scale + offsetX);
+    line.setAttribute("y2", offsetY - offsetY2 * scale);
     line.setAttribute("stroke", "red");
     line.setAttribute("stroke-width", 1);
     line.setAttribute("stroke-dasharray", "5,5");
     svg.appendChild(line);
   }
 
-  // ------------------ Trees to preserve ------------------
+  // --- Road polygon
+  const roadWidth = parseFloat(document.getElementById("roadWidth").value);
+  if (roadCoords.length === 2 && !isNaN(roadWidth)) {
+    const [[x1, y1], [x2, y2]] = roadCoords;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / len, ny = dx / len;
+    const w = roadWidth / 2;
+
+    const polyPts = [
+      [x1 + nx * w, y1 + ny * w],
+      [x2 + nx * w, y2 + ny * w],
+      [x2 - nx * w, y2 - ny * w],
+      [x1 - nx * w, y1 - ny * w]
+    ];
+    const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    road.setAttribute("points", polyPts.map(([x, y]) => `${x * scale + offsetX},${offsetY - y * scale}`).join(" "));
+    road.setAttribute("fill", "grey");
+    road.setAttribute("fill-opacity", 0.3);
+    svg.appendChild(road);
+  }
+
+  // --- Preserved Trees
   const trees = document.getElementById("preservedTrees").value.trim().split(";").filter(Boolean);
   trees.forEach(t => {
     const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
-    let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("cx", x * scale + offsetX);
     circle.setAttribute("cy", offsetY - y * scale);
     circle.setAttribute("r", r * scale);
@@ -397,95 +432,87 @@ function generateZoning() {
     svg.appendChild(circle);
   });
 
-  // ------------------ Road ------------------
-  const roadWidth = parseFloat(document.getElementById("roadWidth").value);
-  if (roadCoords.length === 2 && !isNaN(roadWidth)) {
-    const [[x1, y1], [x2, y2]] = roadCoords;
-    const dx = x2 - x1, dy = y2 - y1;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const ux = dx / length, uy = dy / length;
-    const ox = -uy, oy = ux;
-    const w = roadWidth / 2;
-
-    const polyPts = [
-      [x1 + ox * w, y1 + oy * w],
-      [x2 + ox * w, y2 + oy * w],
-      [x2 - ox * w, y2 - oy * w],
-      [x1 - ox * w, y1 - oy * w]
-    ];
-    const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    road.setAttribute("points", polyPts.map(([x, y]) => `${x * scale + offsetX},${offsetY - y * scale}`).join(" "));
-    road.setAttribute("fill", "grey"); road.setAttribute("fill-opacity", 0.3);
-    svg.appendChild(road);
-  }
-
-  // ------------------ Context Buildings ------------------
-  const buildingsRaw = document.getElementById("contextData").value.trim();
-  parseMultiPairs(buildingsRaw).forEach(building => {
-    const xs = building.map(p => p[0]), ys = building.map(p => p[1]);
+  // --- Contextual Buildings
+  const contextRaw = document.getElementById("contextData").value.trim();
+  const buildings = parseMultiPairs(contextRaw);
+  buildings.forEach(building => {
+    const xs = building.map(p => p[0]);
+    const ys = building.map(p => p[1]);
     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     rect.setAttribute("x", Math.min(...xs) * scale + offsetX);
     rect.setAttribute("y", offsetY - Math.max(...ys) * scale);
     rect.setAttribute("width", (Math.max(...xs) - Math.min(...xs)) * scale);
     rect.setAttribute("height", (Math.max(...ys) - Math.min(...ys)) * scale);
-    rect.setAttribute("fill", "lightgrey");
+    rect.setAttribute("fill", "#bbb");
     rect.setAttribute("opacity", 0.6);
     svg.appendChild(rect);
   });
 
-  // ------------------ Entry / Exit Arrows ------------------
-  const entry = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  const exit = document.createElementNS("http://www.w3.org/2000/svg", "line");
-
-  const [p1, p2] = roadCoords;
-const [rx1, ry1] = p1;
-const [rx2, ry2] = p2;
+    // --- Entry/Exit Arrows
+  const [rx1, ry1] = roadCoords[0];
+  const [rx2, ry2] = roadCoords[1];
+  const roadDx = rx2 - rx1;
+  const roadDy = ry2 - ry1;
+  const roadLen = Math.sqrt(roadDx * roadDx + roadDy * roadDy);
+  const normX = -roadDy / roadLen;
+  const normY = roadDx / roadLen;
 
   const midX = (rx1 + rx2) / 2;
   const midY = (ry1 + ry2) / 2;
-  const dx = rx2 - rx1, dy = ry2 - ry1;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  const nx = -dy / length, ny = dx / length;  // normal
 
-  const arrowSize = 5 * scale;
-  const entryMid = [midX - dx * 0.1, midY - dy * 0.1];
-  const exitMid = [midX + dx * 0.1, midY + dy * 0.1];
+  const entryPos = [midX - roadDx * 0.1, midY - roadDy * 0.1];
+  const exitPos  = [midX + roadDx * 0.1, midY + roadDy * 0.1];
 
-  [entry, exit].forEach((arrow, i) => {
-    const [cx, cy] = i === 0 ? entryMid : exitMid;
-    const endX = cx + nx * (i === 0 ? 1 : -1) * 0.8;
-    const endY = cy + ny * (i === 0 ? 1 : -1) * 0.8;
-    arrow.setAttribute("x1", cx * scale + offsetX);
-    arrow.setAttribute("y1", offsetY - cy * scale);
-    arrow.setAttribute("x2", endX * scale + offsetX);
-    arrow.setAttribute("y2", offsetY - endY * scale);
-    arrow.setAttribute("stroke", "red");
-    arrow.setAttribute("stroke-width", 2);
-    arrow.setAttribute("marker-end", "url(#arrow)");
-    svg.appendChild(arrow);
+  [[entryPos, 1], [exitPos, -1]].forEach(([pos, dir]) => {
+    const [cx, cy] = pos;
+    const x1 = cx;
+    const y1 = cy;
+    const x2 = cx + normX * 1 * dir;
+    const y2 = cy + normY * 1 * dir;
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1 * scale + offsetX);
+    line.setAttribute("y1", offsetY - y1 * scale);
+    line.setAttribute("x2", x2 * scale + offsetX);
+    line.setAttribute("y2", offsetY - y2 * scale);
+    line.setAttribute("stroke", "red");
+    line.setAttribute("stroke-width", "2");
+    line.setAttribute("marker-end", "url(#arrow)");
+    svg.appendChild(line);
   });
 
-  // ... (continue with wind direction, noise, views, privacy using same logic as you’ve already implemented) ...
-}
+  // Define red arrow marker
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  const arrowMarker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+  arrowMarker.setAttribute("id", "arrow");
+  arrowMarker.setAttribute("markerWidth", "6");
+  arrowMarker.setAttribute("markerHeight", "6");
+  arrowMarker.setAttribute("refX", "5");
+  arrowMarker.setAttribute("refY", "3");
+  arrowMarker.setAttribute("orient", "auto");
+  arrowMarker.setAttribute("markerUnits", "strokeWidth");
 
-  // --- WIND DIRECTION (dotted blue arrow) ---
+  const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
+  arrowPath.setAttribute("fill", "red");
+  arrowMarker.appendChild(arrowPath);
+  defs.appendChild(arrowMarker);
+  svg.appendChild(defs);
+
+  // --- Wind Direction
   const windRaw = document.getElementById("windDirection").value.trim();
-  if (windRaw) {
-    const [start, end] = windRaw.split(";").map(p => {
-      const [x, y] = p.replace(/[()]/g, "").split(",").map(Number);
-      return { x, y };
-    });
-
-    const wind = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    wind.setAttribute("x1", start.x * scale + offsetX);
-    wind.setAttribute("y1", offsetY - start.y * scale);
-    wind.setAttribute("x2", end.x * scale + offsetX);
-    wind.setAttribute("y2", offsetY - end.y * scale);
-    wind.setAttribute("stroke", "blue");
-    wind.setAttribute("stroke-width", 2);
-    wind.setAttribute("stroke-dasharray", "4 3");
-    wind.setAttribute("marker-end", "url(#windArrow)");
-    svg.appendChild(wind);
+  if (windRaw.includes(";")) {
+    const [start, end] = windRaw.split(";").map(p => p.replace(/[()]/g, "").split(",").map(Number));
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", start[0] * scale + offsetX);
+    line.setAttribute("y1", offsetY - start[1] * scale);
+    line.setAttribute("x2", end[0] * scale + offsetX);
+    line.setAttribute("y2", offsetY - end[1] * scale);
+    line.setAttribute("stroke", "blue");
+    line.setAttribute("stroke-dasharray", "5,4");
+    line.setAttribute("stroke-width", 2);
+    line.setAttribute("marker-end", "url(#windArrow)");
+    svg.appendChild(line);
 
     const windArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
     windArrow.setAttribute("id", "windArrow");
@@ -500,95 +527,95 @@ const [rx2, ry2] = p2;
     windPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
     windPath.setAttribute("fill", "blue");
     windArrow.appendChild(windPath);
-    svg.querySelector("defs").appendChild(windArrow);
+    defs.appendChild(windArrow);
   }
 
-  // --- NOISE SOURCES (orange concentric circles) ---
+  // --- Noise Sources
   const noiseRaw = document.getElementById("noiseSources").value.trim();
   if (noiseRaw) {
-    const sources = noiseRaw.match(/\((.*?)\)/g);
-    sources.forEach(src => {
-      const [x, y, , rMax] = src.replace(/[()]/g, "").split(",").map(Number);
-      for (let r = 1; r <= rMax; r++) {
+    const points = noiseRaw.match(/\((.*?)\)/g) || [];
+    points.forEach(p => {
+      const [x, y, , radius] = p.replace(/[()]/g, "").split(",").map(Number);
+      for (let r = 1; r <= radius; r++) {
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("cx", x * scale + offsetX);
         circle.setAttribute("cy", offsetY - y * scale);
         circle.setAttribute("r", r * scale);
-        circle.setAttribute("fill", "none");
         circle.setAttribute("stroke", "orange");
-        circle.setAttribute("stroke-width", "0.6");
+        circle.setAttribute("stroke-width", 0.6);
+        circle.setAttribute("fill", "none");
         svg.appendChild(circle);
       }
-      const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      center.setAttribute("cx", x * scale + offsetX);
-      center.setAttribute("cy", offsetY - y * scale);
-      center.setAttribute("r", 2);
-      center.setAttribute("fill", "orange");
-      svg.appendChild(center);
+      const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      centerDot.setAttribute("cx", x * scale + offsetX);
+      centerDot.setAttribute("cy", offsetY - y * scale);
+      centerDot.setAttribute("r", 1.5);
+      centerDot.setAttribute("fill", "orange");
+      svg.appendChild(centerDot);
     });
   }
 
-  // --- PRIVACY SOURCES (purple concentric circles) ---
+  // --- Privacy Sources
   const privacyRaw = document.getElementById("privacySources").value.trim();
   if (privacyRaw) {
-    const sources = privacyRaw.match(/\((.*?)\)/g);
-    sources.forEach(src => {
-      const [x, y, , rMax] = src.replace(/[()]/g, "").split(",").map(Number);
-      for (let r = 1; r <= rMax; r++) {
+    const points = privacyRaw.match(/\((.*?)\)/g) || [];
+    points.forEach(p => {
+      const [x, y, , radius] = p.replace(/[()]/g, "").split(",").map(Number);
+      for (let r = 1; r <= radius; r++) {
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("cx", x * scale + offsetX);
         circle.setAttribute("cy", offsetY - y * scale);
         circle.setAttribute("r", r * scale);
-        circle.setAttribute("fill", "none");
         circle.setAttribute("stroke", "purple");
-        circle.setAttribute("stroke-width", "0.6");
+        circle.setAttribute("stroke-width", 0.6);
+        circle.setAttribute("fill", "none");
         svg.appendChild(circle);
       }
-      const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      center.setAttribute("cx", x * scale + offsetX);
-      center.setAttribute("cy", offsetY - y * scale);
-      center.setAttribute("r", 2);
-      center.setAttribute("fill", "purple");
-      svg.appendChild(center);
+      const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      centerDot.setAttribute("cx", x * scale + offsetX);
+      centerDot.setAttribute("cy", offsetY - y * scale);
+      centerDot.setAttribute("r", 1.5);
+      centerDot.setAttribute("fill", "purple");
+      svg.appendChild(centerDot);
     });
   }
 
-  // --- VIEW DIRECTIONS (dotted pink arrows) ---
+  // --- Views (pink arrows)
   const viewsRaw = document.getElementById("viewDirections").value.trim();
   if (viewsRaw) {
-    const arrows = viewsRaw.match(/\((.*?)\);?\((.*?)\)/g);
-    for (let i = 0; i < arrows.length; i += 2) {
-      const [x1, y1] = arrows[i].replace(/[()]/g, "").split(",").map(Number);
-      const [x2, y2] = arrows[i + 1].replace(/[()]/g, "").split(",").map(Number);
+    const arrowPairs = viewsRaw.match(/\((.*?)\);?\((.*?)\)/g);
+    if (arrowPairs && arrowPairs.length % 2 === 0) {
+      for (let i = 0; i < arrowPairs.length; i += 2) {
+        const [x1, y1] = arrowPairs[i].replace(/[()]/g, "").split(",").map(Number);
+        const [x2, y2] = arrowPairs[i + 1].replace(/[()]/g, "").split(",").map(Number);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1 * scale + offsetX);
+        line.setAttribute("y1", offsetY - y1 * scale);
+        line.setAttribute("x2", x2 * scale + offsetX);
+        line.setAttribute("y2", offsetY - y2 * scale);
+        line.setAttribute("stroke", "pink");
+        line.setAttribute("stroke-dasharray", "4 2");
+        line.setAttribute("stroke-width", 2);
+        line.setAttribute("marker-end", "url(#viewArrow)");
+        svg.appendChild(line);
+      }
+      const viewArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      viewArrow.setAttribute("id", "viewArrow");
+      viewArrow.setAttribute("markerWidth", "6");
+      viewArrow.setAttribute("markerHeight", "6");
+      viewArrow.setAttribute("refX", "5");
+      viewArrow.setAttribute("refY", "3");
+      viewArrow.setAttribute("orient", "auto");
+      viewArrow.setAttribute("markerUnits", "strokeWidth");
 
-      const arrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      arrow.setAttribute("x1", x1 * scale + offsetX);
-      arrow.setAttribute("y1", offsetY - y1 * scale);
-      arrow.setAttribute("x2", x2 * scale + offsetX);
-      arrow.setAttribute("y2", offsetY - y2 * scale);
-      arrow.setAttribute("stroke", "pink");
-      arrow.setAttribute("stroke-dasharray", "3 2");
-      arrow.setAttribute("stroke-width", "2");
-      arrow.setAttribute("marker-end", "url(#viewArrow)");
-      svg.appendChild(arrow);
+      const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
+      arrowPath.setAttribute("fill", "pink");
+      viewArrow.appendChild(arrowPath);
+      defs.appendChild(viewArrow);
     }
-
-    const viewArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-    viewArrow.setAttribute("id", "viewArrow");
-    viewArrow.setAttribute("markerWidth", "6");
-    viewArrow.setAttribute("markerHeight", "6");
-    viewArrow.setAttribute("refX", "5");
-    viewArrow.setAttribute("refY", "3");
-    viewArrow.setAttribute("orient", "auto");
-    viewArrow.setAttribute("markerUnits", "strokeWidth");
-
-    const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
-    arrowPath.setAttribute("fill", "pink");
-    viewArrow.appendChild(arrowPath);
-    svg.querySelector("defs").appendChild(viewArrow);
   }
-
+}
 
 function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
