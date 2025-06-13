@@ -302,9 +302,46 @@ function parseMultiPairs(str) {
   }) : [];
 }
 
+function ensureSVGDefs(svg) {
+  // Only add <defs> once
+  if (!svg.querySelector("defs")) {
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    svg.appendChild(defs);
+
+    // Arrow Marker (Red - Entry/Exit)
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    arrow.setAttribute("id", "arrow");
+    arrow.setAttribute("markerWidth", "6");
+    arrow.setAttribute("markerHeight", "6");
+    arrow.setAttribute("refX", "5");
+    arrow.setAttribute("refY", "3");
+    arrow.setAttribute("orient", "auto");
+    arrow.setAttribute("markerUnits", "strokeWidth");
+    const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
+    arrowPath.setAttribute("fill", "red");
+    arrow.appendChild(arrowPath);
+    defs.appendChild(arrow);
+
+    // Wind Arrow (Blue)
+    const windArrow = arrow.cloneNode(true);
+    windArrow.setAttribute("id", "windArrow");
+    windArrow.querySelector("path").setAttribute("fill", "blue");
+    defs.appendChild(windArrow);
+
+    // View Arrow (Pink)
+    const viewArrow = arrow.cloneNode(true);
+    viewArrow.setAttribute("id", "viewArrow");
+    viewArrow.setAttribute("marker-end", "url(#viewArrow)");
+    viewArrow.querySelector("path").setAttribute("fill", "pink");
+    defs.appendChild(viewArrow);
+  }
+}
+
 function generateZoning() {
   const svg = document.getElementById("zoningCanvas");
   svg.innerHTML = "";
+  ensureSVGDefs(svg);
   const scale = 10;
   const margin = 50;
 
