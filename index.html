@@ -305,28 +305,27 @@ function parseMultiPairs(str) {
 function generateZoning() {
   const svg = document.getElementById("zoningCanvas");
   svg.innerHTML = "";
-
   const scale = 10;
   const margin = 50;
 
-  const parseCoordPair = str => str.replace(/[()]/g, "").split(",").map(Number);
-  const parseMultiPairs = str => {
-    return (str.match(/\(\((.*?)\)\)/g) || []).map(group =>
-      group.replace(/[()]/g, "").split(";").map(pair => pair.split(",").map(Number))
-    );
-  };
+  const parseCoordPair = (s) => s.replace(/[()]/g, "").split(",").map(Number);
+  const parseMultiPairs = (input) =>
+    input.match(/\(\(.*?\)\)/g)?.map(pair =>
+      pair.replace(/[()]/g, "").split(";").map(p => p.split(",").map(Number))
+    ) || [];
 
-  // --- Get site boundary
   const siteRaw = document.getElementById("siteCoords").value.trim();
   const sitePts = siteRaw.split(";").map(pt => {
-    const [x, y] = pt.replace(/[()]/g, '').split(",").map(Number);
+    const [x, y] = pt.replace(/[()]/g, "").split(",").map(Number);
     return { x, y };
   });
 
   const allX = sitePts.map(p => p.x);
   const allY = sitePts.map(p => p.y);
-  const minX = Math.min(...allX), maxX = Math.max(...allX);
-  const minY = Math.min(...allY), maxY = Math.max(...allY);
+  const minX = Math.min(...allX);
+  const maxX = Math.max(...allX);
+  const minY = Math.min(...allY);
+  const maxY = Math.max(...allY);
 
   const bboxWidth = (maxX - minX) * scale + 2 * margin;
   const bboxHeight = (maxY - minY) * scale + 2 * margin;
@@ -334,91 +333,83 @@ function generateZoning() {
   const offsetY = margin + maxY * scale;
 
   svg.setAttribute("viewBox", `0 0 ${bboxWidth} ${bboxHeight}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("width", "100%");
   svg.setAttribute("height", "auto");
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-  // --- Grid
+  // Draw grid
   for (let x = 0; x < bboxWidth; x += scale) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x); line.setAttribute("y1", 0);
-    line.setAttribute("x2", x); line.setAttribute("y2", bboxHeight);
-    line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", 0.5);
+    line.setAttribute("x1", x);
+    line.setAttribute("y1", 0);
+    line.setAttribute("x2", x);
+    line.setAttribute("y2", bboxHeight);
+    line.setAttribute("stroke", "#eee");
+    line.setAttribute("stroke-width", 0.5);
     svg.appendChild(line);
   }
   for (let y = 0; y < bboxHeight; y += scale) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", 0); line.setAttribute("y1", y);
-    line.setAttribute("x2", bboxWidth); line.setAttribute("y2", y);
-    line.setAttribute("stroke", "#eee"); line.setAttribute("stroke-width", 0.5);
+    line.setAttribute("x1", 0);
+    line.setAttribute("y1", y);
+    line.setAttribute("x2", bboxWidth);
+    line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#eee");
+    line.setAttribute("stroke-width", 0.5);
     svg.appendChild(line);
   }
 
-  // --- Site boundary
-  const sitePolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  sitePolygon.setAttribute("points", sitePts.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" "));
-  sitePolygon.setAttribute("fill", "none");
-  sitePolygon.setAttribute("stroke", "black");
-  sitePolygon.setAttribute("stroke-width", 2);
-  svg.appendChild(sitePolygon);
+  // Draw site polygon
+  const sitePoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  sitePoly.setAttribute("points", sitePts.map(p => `${p.x * scale + offsetX},${offsetY - p.y * scale}`).join(" "));
+  sitePoly.setAttribute("fill", "none");
+  sitePoly.setAttribute("stroke", "black");
+  sitePoly.setAttribute("stroke-width", 2);
+  svg.appendChild(sitePoly);
 
-    // --- Frontage detection from roadEdge
+  // ROAD edge → define frontage
   const roadCoords = document.getElementById("roadEdge").value.trim().split(";").map(parseCoordPair);
-  const isFrontEdge = (p1, p2, edge1, edge2) => {
-    const same = (a, b) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01;
-    return (same(p1, edge1) && same(p2, edge2)) || (same(p1, edge2) && same(p2, edge1));
-  };
+  let frontageEdge = null;
+  if (roadCoords.length === 2) {
+    for (let i = 0; i < sitePts.length; i++) {
+      const curr = sitePts[i];
+      const next = sitePts[(i + 1) % sitePts.length];
+      if (
+        (Math.abs(curr.x - roadCoords[0][0]) < 1e-2 && Math.abs(curr.y - roadCoords[0][1]) < 1e-2 &&
+         Math.abs(next.x - roadCoords[1][0]) < 1e-2 && Math.abs(next.y - roadCoords[1][1]) < 1e-2) ||
+        (Math.abs(curr.x - roadCoords[1][0]) < 1e-2 && Math.abs(curr.y - roadCoords[1][1]) < 1e-2 &&
+         Math.abs(next.x - roadCoords[0][0]) < 1e-2 && Math.abs(next.y - roadCoords[0][1]) < 1e-2)
+      ) {
+        frontageEdge = { index: i, start: curr, end: next };
+        break;
+      }
+    }
+  }
 
-  // --- Setbacks
+  // Draw red internal setbacks
+  const frontSetback = 3, sideSetback = 1.5;
   for (let i = 0; i < sitePts.length; i++) {
-    const curr = sitePts[i];
-    const next = sitePts[(i + 1) % sitePts.length];
+    const curr = sitePts[i], next = sitePts[(i + 1) % sitePts.length];
     const dx = next.x - curr.x, dy = next.y - curr.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const ux = dx / length, uy = dy / length;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ux = dx / len, uy = dy / len;
+    const setback = (frontageEdge && i === frontageEdge.index) ? frontSetback : sideSetback;
 
-    const isFront = isFrontEdge([curr.x, curr.y], [next.x, next.y], roadCoords[0], roadCoords[1]);
-    const setback = isFront ? 3 : 1.5;
-
-    const offsetX1 = curr.x - uy * setback;
-    const offsetY1 = curr.y + ux * setback;
-    const offsetX2 = next.x - uy * setback;
-    const offsetY2 = next.y + ux * setback;
+    const inset1 = { x: curr.x - uy * setback, y: curr.y + ux * setback };
+    const inset2 = { x: next.x - uy * setback, y: next.y + ux * setback };
 
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", offsetX1 * scale + offsetX);
-    line.setAttribute("y1", offsetY - offsetY1 * scale);
-    line.setAttribute("x2", offsetX2 * scale + offsetX);
-    line.setAttribute("y2", offsetY - offsetY2 * scale);
+    line.setAttribute("x1", inset1.x * scale + offsetX);
+    line.setAttribute("y1", offsetY - inset1.y * scale);
+    line.setAttribute("x2", inset2.x * scale + offsetX);
+    line.setAttribute("y2", offsetY - inset2.y * scale);
     line.setAttribute("stroke", "red");
     line.setAttribute("stroke-width", 1);
     line.setAttribute("stroke-dasharray", "5,5");
     svg.appendChild(line);
   }
 
-  // --- Road polygon
-  const roadWidth = parseFloat(document.getElementById("roadWidth").value);
-  if (roadCoords.length === 2 && !isNaN(roadWidth)) {
-    const [[x1, y1], [x2, y2]] = roadCoords;
-    const dx = x2 - x1, dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    const nx = -dy / len, ny = dx / len;
-    const w = roadWidth / 2;
-
-    const polyPts = [
-      [x1 + nx * w, y1 + ny * w],
-      [x2 + nx * w, y2 + ny * w],
-      [x2 - nx * w, y2 - ny * w],
-      [x1 - nx * w, y1 - ny * w]
-    ];
-    const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    road.setAttribute("points", polyPts.map(([x, y]) => `${x * scale + offsetX},${offsetY - y * scale}`).join(" "));
-    road.setAttribute("fill", "grey");
-    road.setAttribute("fill-opacity", 0.3);
-    svg.appendChild(road);
-  }
-
-  // --- Preserved Trees
+    // --- Draw preserved trees ---
   const trees = document.getElementById("preservedTrees").value.trim().split(";").filter(Boolean);
   trees.forEach(t => {
     const [x, y, , r] = t.replace(/[()]/g, "").split(",").map(Number);
@@ -432,188 +423,128 @@ function generateZoning() {
     svg.appendChild(circle);
   });
 
-  // --- Contextual Buildings
-  const contextRaw = document.getElementById("contextData").value.trim();
-  const buildings = parseMultiPairs(contextRaw);
-  buildings.forEach(building => {
-    const xs = building.map(p => p[0]);
-    const ys = building.map(p => p[1]);
+  // --- Draw road polygon ---
+  const roadWidth = parseFloat(document.getElementById("roadWidth").value);
+  if (roadCoords.length === 2 && !isNaN(roadWidth)) {
+    const [[x1, y1], [x2, y2]] = roadCoords;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ox = -dy / len, oy = dx / len;
+    const w = roadWidth / 2;
+    const pts = [
+      [x1 + ox * w, y1 + oy * w],
+      [x2 + ox * w, y2 + oy * w],
+      [x2 - ox * w, y2 - oy * w],
+      [x1 - ox * w, y1 - oy * w]
+    ];
+    const road = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    road.setAttribute("points", pts.map(([x, y]) => `${x * scale + offsetX},${offsetY - y * scale}`).join(" "));
+    road.setAttribute("fill", "grey");
+    road.setAttribute("fill-opacity", 0.3);
+    svg.appendChild(road);
+  }
+
+  // --- Context buildings ---
+  const buildingsRaw = document.getElementById("contextData").value.trim();
+  parseMultiPairs(buildingsRaw).forEach(building => {
+    const xs = building.map(p => p[0]), ys = building.map(p => p[1]);
     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     rect.setAttribute("x", Math.min(...xs) * scale + offsetX);
     rect.setAttribute("y", offsetY - Math.max(...ys) * scale);
     rect.setAttribute("width", (Math.max(...xs) - Math.min(...xs)) * scale);
     rect.setAttribute("height", (Math.max(...ys) - Math.min(...ys)) * scale);
-    rect.setAttribute("fill", "#bbb");
+    rect.setAttribute("fill", "lightgrey");
     rect.setAttribute("opacity", 0.6);
     svg.appendChild(rect);
   });
 
-    // --- Entry/Exit Arrows
-  const [rx1, ry1] = roadCoords[0];
-  const [rx2, ry2] = roadCoords[1];
-  const roadDx = rx2 - rx1;
-  const roadDy = ry2 - ry1;
-  const roadLen = Math.sqrt(roadDx * roadDx + roadDy * roadDy);
-  const normX = -roadDy / roadLen;
-  const normY = roadDx / roadLen;
+  // --- Wind direction ---
+  const windRaw = document.getElementById("windDirection").value.trim();
+  if (windRaw) {
+    const [start, end] = windRaw.split(";").map(s => parseCoordPair(s));
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    arrow.setAttribute("x1", start[0] * scale + offsetX);
+    arrow.setAttribute("y1", offsetY - start[1] * scale);
+    arrow.setAttribute("x2", end[0] * scale + offsetX);
+    arrow.setAttribute("y2", offsetY - end[1] * scale);
+    arrow.setAttribute("stroke", "blue");
+    arrow.setAttribute("stroke-dasharray", "4 3");
+    arrow.setAttribute("stroke-width", 2);
+    arrow.setAttribute("marker-end", "url(#windArrow)");
+    svg.appendChild(arrow);
+  }
 
-  const midX = (rx1 + rx2) / 2;
-  const midY = (ry1 + ry2) / 2;
+  // --- Noise & Privacy circles ---
+  const drawConcentric = (raw, color) => {
+    const matches = raw.match(/\((.*?)\)/g) || [];
+    matches.forEach(m => {
+      const [x, y, , rMax] = m.replace(/[()]/g, "").split(",").map(Number);
+      for (let r = 1; r <= rMax; r++) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x * scale + offsetX);
+        circle.setAttribute("cy", offsetY - y * scale);
+        circle.setAttribute("r", r * scale);
+        circle.setAttribute("stroke", color);
+        circle.setAttribute("fill", "none");
+        circle.setAttribute("stroke-width", "0.6");
+        svg.appendChild(circle);
+      }
+      const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      centerDot.setAttribute("cx", x * scale + offsetX);
+      centerDot.setAttribute("cy", offsetY - y * scale);
+      centerDot.setAttribute("r", 2);
+      centerDot.setAttribute("fill", color);
+      svg.appendChild(centerDot);
+    });
+  };
+  drawConcentric(document.getElementById("noiseSources").value.trim(), "orange");
+  drawConcentric(document.getElementById("privacySources").value.trim(), "purple");
 
-  const entryPos = [midX - roadDx * 0.1, midY - roadDy * 0.1];
-  const exitPos  = [midX + roadDx * 0.1, midY + roadDy * 0.1];
-
-  [[entryPos, 1], [exitPos, -1]].forEach(([pos, dir]) => {
-    const [cx, cy] = pos;
-    const x1 = cx;
-    const y1 = cy;
-    const x2 = cx + normX * 1 * dir;
-    const y2 = cy + normY * 1 * dir;
-
+  // --- Views (pink dotted arrows) ---
+  const viewsRaw = document.getElementById("viewDirections").value.trim();
+  const pairs = viewsRaw.match(/\(\s*\d+.*?\)\s*;\s*\(\s*\d+.*?\)/g) || [];
+  pairs.forEach(pair => {
+    const [p1, p2] = pair.split(";").map(parseCoordPair);
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x1 * scale + offsetX);
-    line.setAttribute("y1", offsetY - y1 * scale);
-    line.setAttribute("x2", x2 * scale + offsetX);
-    line.setAttribute("y2", offsetY - y2 * scale);
-    line.setAttribute("stroke", "red");
-    line.setAttribute("stroke-width", "2");
-    line.setAttribute("marker-end", "url(#arrow)");
+    line.setAttribute("x1", p1[0] * scale + offsetX);
+    line.setAttribute("y1", offsetY - p1[1] * scale);
+    line.setAttribute("x2", p2[0] * scale + offsetX);
+    line.setAttribute("y2", offsetY - p2[1] * scale);
+    line.setAttribute("stroke", "pink");
+    line.setAttribute("stroke-width", 2);
+    line.setAttribute("stroke-dasharray", "3 2");
+    line.setAttribute("marker-end", "url(#viewArrow)");
     svg.appendChild(line);
   });
 
-  // Define red arrow marker
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  const arrowMarker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-  arrowMarker.setAttribute("id", "arrow");
-  arrowMarker.setAttribute("markerWidth", "6");
-  arrowMarker.setAttribute("markerHeight", "6");
-  arrowMarker.setAttribute("refX", "5");
-  arrowMarker.setAttribute("refY", "3");
-  arrowMarker.setAttribute("orient", "auto");
-  arrowMarker.setAttribute("markerUnits", "strokeWidth");
+  // --- Entry/Exit Arrows ---
+  if (frontageEdge) {
+    const { start, end } = frontageEdge;
+    const midX = (start.x + end.x) / 2;
+    const midY = (start.y + end.y) / 2;
+    const dx = end.x - start.x, dy = end.y - start.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / len, ny = dx / len;
 
-  const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
-  arrowPath.setAttribute("fill", "red");
-  arrowMarker.appendChild(arrowPath);
-  defs.appendChild(arrowMarker);
-  svg.appendChild(defs);
+    const arrowLength = 1.5;  // meters
+    const spacing = 1.5;      // offset from center
+    const entryPos = { x: midX - dx * 0.1, y: midY - dy * 0.1 };
+    const exitPos = { x: midX + dx * 0.1, y: midY + dy * 0.1 };
 
-  // --- Wind Direction
-  const windRaw = document.getElementById("windDirection").value.trim();
-  if (windRaw.includes(";")) {
-    const [start, end] = windRaw.split(";").map(p => p.replace(/[()]/g, "").split(",").map(Number));
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", start[0] * scale + offsetX);
-    line.setAttribute("y1", offsetY - start[1] * scale);
-    line.setAttribute("x2", end[0] * scale + offsetX);
-    line.setAttribute("y2", offsetY - end[1] * scale);
-    line.setAttribute("stroke", "blue");
-    line.setAttribute("stroke-dasharray", "5,4");
-    line.setAttribute("stroke-width", 2);
-    line.setAttribute("marker-end", "url(#windArrow)");
-    svg.appendChild(line);
-
-    const windArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-    windArrow.setAttribute("id", "windArrow");
-    windArrow.setAttribute("markerWidth", "6");
-    windArrow.setAttribute("markerHeight", "6");
-    windArrow.setAttribute("refX", "5");
-    windArrow.setAttribute("refY", "3");
-    windArrow.setAttribute("orient", "auto");
-    windArrow.setAttribute("markerUnits", "strokeWidth");
-
-    const windPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    windPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
-    windPath.setAttribute("fill", "blue");
-    windArrow.appendChild(windPath);
-    defs.appendChild(windArrow);
-  }
-
-  // --- Noise Sources
-  const noiseRaw = document.getElementById("noiseSources").value.trim();
-  if (noiseRaw) {
-    const points = noiseRaw.match(/\((.*?)\)/g) || [];
-    points.forEach(p => {
-      const [x, y, , radius] = p.replace(/[()]/g, "").split(",").map(Number);
-      for (let r = 1; r <= radius; r++) {
-        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", x * scale + offsetX);
-        circle.setAttribute("cy", offsetY - y * scale);
-        circle.setAttribute("r", r * scale);
-        circle.setAttribute("stroke", "orange");
-        circle.setAttribute("stroke-width", 0.6);
-        circle.setAttribute("fill", "none");
-        svg.appendChild(circle);
-      }
-      const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      centerDot.setAttribute("cx", x * scale + offsetX);
-      centerDot.setAttribute("cy", offsetY - y * scale);
-      centerDot.setAttribute("r", 1.5);
-      centerDot.setAttribute("fill", "orange");
-      svg.appendChild(centerDot);
+    [entryPos, exitPos].forEach((pos, i) => {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const sign = i === 0 ? 1 : -1;
+      const endX = pos.x + sign * nx * arrowLength;
+      const endY = pos.y + sign * ny * arrowLength;
+      line.setAttribute("x1", pos.x * scale + offsetX);
+      line.setAttribute("y1", offsetY - pos.y * scale);
+      line.setAttribute("x2", endX * scale + offsetX);
+      line.setAttribute("y2", offsetY - endY * scale);
+      line.setAttribute("stroke", "red");
+      line.setAttribute("stroke-width", 2);
+      line.setAttribute("marker-end", "url(#arrow)");
+      svg.appendChild(line);
     });
-  }
-
-  // --- Privacy Sources
-  const privacyRaw = document.getElementById("privacySources").value.trim();
-  if (privacyRaw) {
-    const points = privacyRaw.match(/\((.*?)\)/g) || [];
-    points.forEach(p => {
-      const [x, y, , radius] = p.replace(/[()]/g, "").split(",").map(Number);
-      for (let r = 1; r <= radius; r++) {
-        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", x * scale + offsetX);
-        circle.setAttribute("cy", offsetY - y * scale);
-        circle.setAttribute("r", r * scale);
-        circle.setAttribute("stroke", "purple");
-        circle.setAttribute("stroke-width", 0.6);
-        circle.setAttribute("fill", "none");
-        svg.appendChild(circle);
-      }
-      const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      centerDot.setAttribute("cx", x * scale + offsetX);
-      centerDot.setAttribute("cy", offsetY - y * scale);
-      centerDot.setAttribute("r", 1.5);
-      centerDot.setAttribute("fill", "purple");
-      svg.appendChild(centerDot);
-    });
-  }
-
-  // --- Views (pink arrows)
-  const viewsRaw = document.getElementById("viewDirections").value.trim();
-  if (viewsRaw) {
-    const arrowPairs = viewsRaw.match(/\((.*?)\);?\((.*?)\)/g);
-    if (arrowPairs && arrowPairs.length % 2 === 0) {
-      for (let i = 0; i < arrowPairs.length; i += 2) {
-        const [x1, y1] = arrowPairs[i].replace(/[()]/g, "").split(",").map(Number);
-        const [x2, y2] = arrowPairs[i + 1].replace(/[()]/g, "").split(",").map(Number);
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", x1 * scale + offsetX);
-        line.setAttribute("y1", offsetY - y1 * scale);
-        line.setAttribute("x2", x2 * scale + offsetX);
-        line.setAttribute("y2", offsetY - y2 * scale);
-        line.setAttribute("stroke", "pink");
-        line.setAttribute("stroke-dasharray", "4 2");
-        line.setAttribute("stroke-width", 2);
-        line.setAttribute("marker-end", "url(#viewArrow)");
-        svg.appendChild(line);
-      }
-      const viewArrow = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-      viewArrow.setAttribute("id", "viewArrow");
-      viewArrow.setAttribute("markerWidth", "6");
-      viewArrow.setAttribute("markerHeight", "6");
-      viewArrow.setAttribute("refX", "5");
-      viewArrow.setAttribute("refY", "3");
-      viewArrow.setAttribute("orient", "auto");
-      viewArrow.setAttribute("markerUnits", "strokeWidth");
-
-      const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      arrowPath.setAttribute("d", "M0,0 L6,3 L0,6 Z");
-      arrowPath.setAttribute("fill", "pink");
-      viewArrow.appendChild(arrowPath);
-      defs.appendChild(viewArrow);
-    }
   }
 }
 
