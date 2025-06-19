@@ -57,8 +57,121 @@
     <svg id="canvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc;"></svg>
   </div>
 
+<!-- STEP 2: GROUND ZONING -->
+<div class="section" id="step2" style="display:none;">
+  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
+
+  <p><strong>Setback Info:</strong> Front = 3m, Rear & Sides = 1.5m. Frontage side is determined based on road location.</p>
+
+  <label>Preserved Trees – (x,y,0,radius,height); separate with semicolon</label>
+  <textarea id="preservedTrees"></textarea>
+
+  <label>Predominant Wind Direction – Enter two points (start to end): (x1,y1,z1);(x2,y2,z2)</label>
+  <textarea id="windDirection"></textarea>
+
+  <label>Noise Sources – ((x,y,z,radius);(...))</label>
+  <textarea id="noiseSources"></textarea>
+
+  <label>View Directions – ((x1,y1,z1);(x2,y2,z2));((x3,y3,z3);(x4,y4,z4)) etc.</label>
+  <textarea id="viewDirections"></textarea>
+
+  <label>Privacy Concern Sources – ((x,y,z,radius);(...))</label>
+  <textarea id="privacySources"></textarea>
+
+  <button onclick="renderStep2()">Render Step 2</button>
+  <button onclick="goToStep2B()">Proceed to Circulation & Zoning (Step 2B)</button>
+
+  <svg id="zoningCanvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc; background-color:#f9f9f9;">
+    <defs>
+      <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="red" />
+      </marker>
+      <marker id="windArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="blue" />
+      </marker>
+      <marker id="viewArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L6,3 L0,6 Z" fill="pink" />
+      </marker>
+    </defs>
+  </svg>
+</div>
+
+<!-- STEP 2B: CIRCULATION & ZONING OPTIONS -->
+<div class="section" id="step2b" style="display:none;">
+  <h2>Step 2B: Circulation Preferences & Preliminary Zoning</h2>
+
+  <label>Describe circulation preferences:</label>
+  <textarea id="circulationPrompt" placeholder="E.g., Separate pedestrian/vehicular paths, circulation depth 6m, keep vehicular near front..."></textarea>
+
+  <button onclick="generateZoningOptions()">Generate Zoning Options</button>
+
+  <div id="zoningOptions" style="display:none; margin-top: 20px;">
+    <h3>Select one zoning option:</h3>
+    <div style="display: flex; gap: 10px;">
+      <div>
+        <svg id="zoningOptionA" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">A</p>
+      </div>
+      <div>
+        <svg id="zoningOptionB" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">B</p>
+      </div>
+      <div>
+        <svg id="zoningOptionC" width="250" height="250" style="border:1px solid #ccc;"></svg>
+        <p style="text-align:center;">C</p>
+      </div>
+    </div>
+
+    <label for="selectedZoning">Choose option (A, B, or C):</label>
+    <input type="text" id="selectedZoning" />
+
+    <button onclick="proceedToStep3()">Proceed to Step 3</button>
+  </div>
+</div>
+
+<style>
+  .section textarea,
+  .section input {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0 15px 0;
+    font-family: monospace;
+  }
+  .section label {
+    font-weight: bold;
+    margin-top: 10px;
+    display: block;
+  }
+</style>
+
+    <!-- STEP 3: AREA STATEMENT -->
+  <div class="section" id="step3" style="display:none;">
+    <h2>Step 3: Area Statement</h2>
+
+    <button onclick="generateAreaStatement()">Generate Area Statement</button>
+
+    <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
+      <strong>Area Statement will appear here.</strong>
+    </div>
+
+    <button onclick="goToStep4()">Proceed to Step 4</button>
+  </div>
+
+  <!-- STEP 4: BUBBLE DIAGRAM -->
+  <div class="section" id="step4" style="display:none;">
+    <h2>Step 4: Bubble Diagram</h2>
+    <p>[UI and logic for Step 4 will go here]</p>
+    <button onclick="goToStep5()">Proceed to Step 5</button>
+  </div>
+
+  <!-- STEP 5: FINAL PLAN -->
+  <div class="section" id="step5" style="display:none;">
+    <h2>Step 5: Final Plan</h2>
+    <p>[UI and logic for Step 5 will go here]</p>
+  </div>
+
   <script>
-    function parseCoords(str) {
+  function parseCoords(str) {
       return str.split(";").map(s => s.replace(/[()]/g, "").split(",").map(Number));
     }
 
@@ -202,125 +315,7 @@ roadWidthGlobal = document.getElementById("roadWidth").value.trim();
       document.getElementById("step1").style.display = "none";
       document.getElementById("step2").style.display = "block";
     }
-  </script>
-
-<!-- STEP 2: GROUND ZONING -->
-<div class="section" id="step2" style="display:none;">
-  <h2>Step 2: Ground Zoning & Footprint Analysis</h2>
-
-  <p><strong>Setback Info:</strong> Front = 3m, Rear & Sides = 1.5m. Frontage side is determined based on road location.</p>
-
-  <label>Preserved Trees – (x,y,0,radius,height); separate with semicolon</label>
-  <textarea id="preservedTrees"></textarea>
-
-  <label>Predominant Wind Direction – Enter two points (start to end): (x1,y1,z1);(x2,y2,z2)</label>
-  <textarea id="windDirection"></textarea>
-
-  <label>Noise Sources – ((x,y,z,radius);(...))</label>
-  <textarea id="noiseSources"></textarea>
-
-  <label>View Directions – ((x1,y1,z1);(x2,y2,z2));((x3,y3,z3);(x4,y4,z4)) etc.</label>
-  <textarea id="viewDirections"></textarea>
-
-  <label>Privacy Concern Sources – ((x,y,z,radius);(...))</label>
-  <textarea id="privacySources"></textarea>
-
-  <button onclick="renderStep2()">Render Step 2</button>
-  <button onclick="goToStep2B()">Proceed to Circulation & Zoning (Step 2B)</button>
-
-  <svg id="zoningCanvas" preserveAspectRatio="xMidYMid meet" width="100%" height="auto" style="border:1px dashed #ccc; background-color:#f9f9f9;">
-    <defs>
-      <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-        <path d="M0,0 L6,3 L0,6 Z" fill="red" />
-      </marker>
-      <marker id="windArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-        <path d="M0,0 L6,3 L0,6 Z" fill="blue" />
-      </marker>
-      <marker id="viewArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-        <path d="M0,0 L6,3 L0,6 Z" fill="pink" />
-      </marker>
-    </defs>
-  </svg>
-</div>
-
-<!-- STEP 2B: CIRCULATION & ZONING OPTIONS -->
-<div class="section" id="step2b" style="display:none;">
-  <h2>Step 2B: Circulation Preferences & Preliminary Zoning</h2>
-
-  <label>Describe circulation preferences:</label>
-  <textarea id="circulationPrompt" placeholder="E.g., Separate pedestrian/vehicular paths, circulation depth 6m, keep vehicular near front..."></textarea>
-
-  <button onclick="generateZoningOptions()">Generate Zoning Options</button>
-
-  <div id="zoningOptions" style="display:none; margin-top: 20px;">
-    <h3>Select one zoning option:</h3>
-    <div style="display: flex; gap: 10px;">
-      <div>
-        <svg id="zoningOptionA" width="250" height="250" style="border:1px solid #ccc;"></svg>
-        <p style="text-align:center;">A</p>
-      </div>
-      <div>
-        <svg id="zoningOptionB" width="250" height="250" style="border:1px solid #ccc;"></svg>
-        <p style="text-align:center;">B</p>
-      </div>
-      <div>
-        <svg id="zoningOptionC" width="250" height="250" style="border:1px solid #ccc;"></svg>
-        <p style="text-align:center;">C</p>
-      </div>
-    </div>
-
-    <label for="selectedZoning">Choose option (A, B, or C):</label>
-    <input type="text" id="selectedZoning" />
-
-    <button onclick="proceedToStep3()">Proceed to Step 3</button>
-  </div>
-</div>
-
-
-<style>
-  .section textarea,
-  .section input {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0 15px 0;
-    font-family: monospace;
-  }
-  .section label {
-    font-weight: bold;
-    margin-top: 10px;
-    display: block;
-  }
-</style>
-
-
-    <!-- STEP 3: AREA STATEMENT -->
-  <div class="section" id="step3" style="display:none;">
-    <h2>Step 3: Area Statement</h2>
-
-    <button onclick="generateAreaStatement()">Generate Area Statement</button>
-
-    <div id="areaStatementOutput" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9;">
-      <strong>Area Statement will appear here.</strong>
-    </div>
-
-    <button onclick="goToStep4()">Proceed to Step 4</button>
-  </div>
-
-  <!-- STEP 4: BUBBLE DIAGRAM -->
-  <div class="section" id="step4" style="display:none;">
-    <h2>Step 4: Bubble Diagram</h2>
-    <p>[UI and logic for Step 4 will go here]</p>
-    <button onclick="goToStep5()">Proceed to Step 5</button>
-  </div>
-
-  <!-- STEP 5: FINAL PLAN -->
-  <div class="section" id="step5" style="display:none;">
-    <h2>Step 5: Final Plan</h2>
-    <p>[UI and logic for Step 5 will go here]</p>
-  </div>
-
-  <script>
-
+  
 let siteCoordsGlobal = "";
 let treeDataGlobal = "";
 let contextDataGlobal = "";
@@ -638,6 +633,10 @@ function goToStep2B() {
 }
 
 function generateZoningOptions() {
+  function drawBaseDiagram(svg) {
+  // Redraw base site context onto each of A/B/C canvases before adding circulation
+}
+
   const prompt = document.getElementById("circulationPrompt").value.trim();
   if (!prompt) {
     alert("Please enter your circulation preferences.");
@@ -646,31 +645,51 @@ function generateZoningOptions() {
 
   document.getElementById("zoningOptions").style.display = "block";
 
-  // Placeholder generation (replace with ML logic later)
-  ["A", "B", "C"].forEach(id => {
+  // === STEP 1: Rule-based parsing ===
+  const isSeparate = prompt.toLowerCase().includes("separate");
+  const depthMatch = prompt.match(/depth\s*(\d+)/i);
+  const depth = depthMatch ? parseInt(depthMatch[1]) : 6;
+
+  // === STEP 2: Generate 3 variants ===
+  ["A", "B", "C"].forEach((id, idx) => {
     const svg = document.getElementById(`zoningOption${id}`);
     svg.innerHTML = "";
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("x", 50);
-    rect.setAttribute("y", 50);
-    rect.setAttribute("width", 150);
-    rect.setAttribute("height", 100);
-    rect.setAttribute("fill", id === "A" ? "brown" : id === "B" ? "saddlebrown" : "peru");
-    rect.setAttribute("fill-opacity", 0.2);
-    rect.setAttribute("stroke", "brown");
-    rect.setAttribute("stroke-width", 2);
-    svg.appendChild(rect);
-  });
 
-function proceedToStep3() {
-  const choice = document.getElementById("selectedZoning").value.trim().toUpperCase();
-  if (!["A", "B", "C"].includes(choice)) {
-    alert("Please choose a valid option: A, B, or C.");
-    return;
-  }
-  document.getElementById("step2b").style.display = "none";
-  document.getElementById("step3").style.display = "block";
-}
+    // For simplicity, generate random entry/exit spacing
+    const spacing = (idx + 1) * 3; // A: 3m, B: 6m, C: 9m
+    const startX = 40 + idx * 10;
+    const entryY = 20;
+    const exitY = 220;
+
+    const entryArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    entryArrow.setAttribute("x1", startX);
+    entryArrow.setAttribute("y1", entryY);
+    entryArrow.setAttribute("x2", startX);
+    entryArrow.setAttribute("y2", entryY + 40);
+    entryArrow.setAttribute("stroke", "purple");
+    entryArrow.setAttribute("stroke-width", 2);
+    entryArrow.setAttribute("marker-end", "url(#arrow)");
+    svg.appendChild(entryArrow);
+
+    const exitArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    exitArrow.setAttribute("x1", startX + spacing);
+    exitArrow.setAttribute("y1", exitY - 40);
+    exitArrow.setAttribute("x2", startX + spacing);
+    exitArrow.setAttribute("y2", exitY);
+    exitArrow.setAttribute("stroke", "darkred");
+    exitArrow.setAttribute("stroke-width", 2);
+    exitArrow.setAttribute("marker-end", "url(#arrow)");
+    svg.appendChild(exitArrow);
+
+    const pathLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    const midY = entryY + (exitY - entryY) / 2;
+    pathLine.setAttribute("points", `${startX},${entryY+40} ${startX},${midY} ${startX + spacing},${midY} ${startX + spacing},${exitY-40}`);
+    pathLine.setAttribute("fill", "none");
+    pathLine.setAttribute("stroke", "maroon");
+    pathLine.setAttribute("stroke-dasharray", "4 2");
+    pathLine.setAttribute("stroke-width", 2);
+    svg.appendChild(pathLine);
+  });
 }
 
 function generateAreaStatement() {
@@ -716,5 +735,6 @@ function generateAreaStatement() {
       document.getElementById("step5").style.display = "block";
     }
   </script>
+
 </body>
 </html>
