@@ -190,6 +190,12 @@
         road.setAttribute("opacity", 0.5);
         svg.appendChild(road);
       }
+      siteCoordsGlobal = document.getElementById("siteCoords").value.trim();
+treeDataGlobal = document.getElementById("treeData").value.trim();
+contextDataGlobal = document.getElementById("contextData").value.trim();
+roadEdgeGlobal = document.getElementById("roadEdge").value.trim();
+roadWidthGlobal = document.getElementById("roadWidth").value.trim();
+
     }
 
     function goToStep2() {
@@ -314,6 +320,14 @@
   </div>
 
   <script>
+
+let siteCoordsGlobal = "";
+let treeDataGlobal = "";
+let contextDataGlobal = "";
+let roadEdgeGlobal = "";
+let roadWidthGlobal = "";
+
+
 function renderStep2() {
   try {
     generateZoning();
@@ -384,7 +398,7 @@ function generateZoning() {
       pair.replace(/[()]/g, "").split(";").map(p => p.split(",").map(Number))
     ) || [];
 
-  const siteRaw = document.getElementById("siteCoords").value.trim();
+  const siteRaw = siteCoordsGlobal;
   const sitePts = siteRaw.split(";").map(pt => {
     const [x, y] = pt.replace(/[()]/g, "").split(",").map(Number);
     return { x, y };
@@ -438,7 +452,7 @@ function generateZoning() {
   svg.appendChild(sitePoly);
 
   // ROAD edge → define frontage
-  const roadCoords = document.getElementById("roadEdge").value.trim().split(";").map(parseCoordPair);
+  const roadCoords = roadEdgeGlobal.split(";").map(parseCoordPair);
   let frontageEdge = null;
   if (roadCoords.length === 2) {
     for (let i = 0; i < sitePts.length; i++) {
@@ -494,7 +508,7 @@ function generateZoning() {
   });
 
   // --- Draw road polygon ---
-  const roadWidth = parseFloat(document.getElementById("roadWidth").value);
+  const roadWidth = parseFloat(roadWidthGlobal);
   if (roadCoords.length === 2 && !isNaN(roadWidth)) {
     const [[x1, y1], [x2, y2]] = roadCoords;
     const dx = x2 - x1, dy = y2 - y1;
@@ -515,7 +529,7 @@ function generateZoning() {
   }
 
   // --- Context buildings ---
-  const buildingsRaw = document.getElementById("contextData").value.trim();
+  const buildingsRaw = contextDataGlobal;
   parseMultiPairs(buildingsRaw).forEach(building => {
     const xs = building.map(p => p[0]), ys = building.map(p => p[1]);
     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -657,7 +671,7 @@ function proceedToStep3() {
   document.getElementById("step2b").style.display = "none";
   document.getElementById("step3").style.display = "block";
 }
-
+}
 
 function generateAreaStatement() {
       const siteWidth = parseFloat(document.getElementById("siteWidth").value);
